@@ -341,34 +341,42 @@ function applyFeatheredExclude(c2d,indices,expandX,expandY,feather){
   const pts=indices.map(i=>lm(i));
   let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
   pts.forEach(p=>{minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y);});
-  const ecx=(minX+maxX)/2,ecy=(minY+maxY)/2;
-  const rx=(maxX-minX)/2+expandX,ry=(maxY-minY)/2+expandY;
-  // Gradient radial dari tengah transparan ke luar opak
-  // Di-apply setelah efek untuk "erase" efek di area mata
+  const ecx=(minX+maxX)/2, ecy=(minY+maxY)/2;
+  const rx=(maxX-minX)/2+expandX, ry=(maxY-minY)/2+expandY;
+
   const offscreen=document.createElement('canvas');
-  offscreen.width=canvas.width;offscreen.height=canvas.height;
+  offscreen.width=canvas.width; offscreen.height=canvas.height;
   const oc=offscreen.getContext('2d');
-  // Gambar ellipse penuh dengan gradient
+
+  // Feather lebar: dari dalam (opak) ke luar (transparan)
+  // Inner: solid, outer: fade over 40% of radius
   oc.save();
-  oc.translate(ecx,ecy);
-  oc.scale(rx,ry);
-  const g=oc.createRadialGradient(0,0,0,0,0,1);
-  g.addColorStop(0,'rgba(0,0,0,1)');
-  g.addColorStop(0.6,'rgba(0,0,0,0.7)');
-  g.addColorStop(1,'rgba(0,0,0,0)');
+  oc.translate(ecx, ecy);
+  oc.scale(rx, ry);
+  const innerR = 0.5; // 50% radius = solid core
+  const g=oc.createRadialGradient(0,0,0, 0,0,1.2);
+  g.addColorStop(0,           'rgba(0,0,0,1)');
+  g.addColorStop(innerR,      'rgba(0,0,0,1)');
+  g.addColorStop(innerR*1.3,  'rgba(0,0,0,0.85)');
+  g.addColorStop(innerR*1.6,  'rgba(0,0,0,0.55)');
+  g.addColorStop(innerR*2.0,  'rgba(0,0,0,0.2)');
+  g.addColorStop(1.2,         'rgba(0,0,0,0)');
   oc.fillStyle=g;
-  oc.beginPath();oc.arc(0,0,1+feather/Math.max(rx,ry),0,Math.PI*2);
+  oc.beginPath(); oc.arc(0,0,1.2,0,Math.PI*2);
   oc.fill();
   oc.restore();
   return offscreen;
 }
 
 
-// Oval feather mask: efek fade halus di tepi wajah
-// Render oval solid di tengah, fade ke transparan di tepi (feather zone)
+// Oval feather mask - teknik pixel-level distance falloff
+// Setiap pixel dihitung jarak normalizednya ke pusat oval
+// Luar oval=0 (transparan), dalam=1 (opak), feather zone=transisi smooth
 function applyOvalFeatherMask(targetCtx){
+  const W=targetCtx.canvas.width, H=targetCtx.canvas.height;
   const pts=getOvalPts();
-  // Hitung bounding box oval
+
+  // Hitung centroid & radius oval dari landmark
   let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
   pts.forEach(p=>{
     minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);
@@ -376,38 +384,49 @@ function applyOvalFeatherMask(targetCtx){
   });
   const cx=(minX+maxX)/2, cy=(minY+maxY)/2;
   const rx=(maxX-minX)/2, ry=(maxY-minY)/2;
-  // Feather width: 10% dari radius
-  const featherX=rx*0.12, featherY=ry*0.12;
 
-  // Buat mask canvas
-  const mask=document.createElement('canvas');
-  mask.width=targetCtx.canvas.width;
-  mask.height=targetCtx.canvas.height;
-  const mc=mask.getContext('2d');
+  // Feather width = 28% dari radius — sangat halus
+  const featherFrac = 0.28;
+  // Inner radius (fully opaque) = 72% dari radius oval
+  const innerRx = rx*(1-featherFrac);
+  const innerRy = ry*(1-featherFrac);
 
-  // Gambar oval luar (transparan) ke oval dalam (opak)
-  // Pakai multiple concentric ellipse dengan opacity meningkat
-  const steps=24;
-  for(let i=0;i<steps;i++){
-    const t=i/steps; // 0=tepi luar, 1=tengah
-    const alpha=t*t; // easing: lambat di tepi, cepat ke tengah
-    const scaleX=1-(1-t)*featherX/rx;
-    const scaleY=1-(1-t)*featherY/ry;
-    mc.fillStyle=`rgba(0,0,0,${alpha/steps*2})`;
-    mc.beginPath();
-    mc.ellipse(cx,cy,rx*scaleX,ry*scaleY,0,0,Math.PI*2);
-    mc.fill();
-  }
-  // Isi penuh tengah oval
-  mc.fillStyle='rgba(0,0,0,1)';
+  // Buat mask via offscreen canvas dengan gradient radial
+  // Tapi karena ellipse bukan lingkaran, kita pakai teknik scale trick:
+  // Scale canvas sehingga ellipse jadi lingkaran, apply radial gradient, scale balik
+  const mask = document.createElement('canvas');
+  mask.width = W; mask.height = H;
+  const mc = mask.getContext('2d');
+
+  // Gambar gradient radial yang mengisi oval dengan feather di tepi
+  // Caranya: transform ke ruang ellipse (normalized), apply gradient
+  mc.save();
+  mc.translate(cx, cy);
+  mc.scale(rx, ry); // transform: ellipse → circle radius 1
+
+  // Radial gradient dari pusat (opak) ke tepi+beyond (transparan)
+  // innerR dalam normalized space = 1-featherFrac
+  const innerR = 1 - featherFrac;
+  const grad = mc.createRadialGradient(0,0, innerR*0.0, 0,0, 1.0);
+  grad.addColorStop(0,              'rgba(0,0,0,1)');   // pusat: opak penuh
+  grad.addColorStop(innerR*0.7,     'rgba(0,0,0,1)');   // masih opak
+  grad.addColorStop(innerR,         'rgba(0,0,0,0.95)'); // mulai fade
+  grad.addColorStop(innerR*1.15,    'rgba(0,0,0,0.75)');
+  grad.addColorStop(innerR*1.30,    'rgba(0,0,0,0.45)');
+  grad.addColorStop(innerR*1.50,    'rgba(0,0,0,0.18)');
+  grad.addColorStop(1.0,            'rgba(0,0,0,0)');   // tepi oval: transparan
+  grad.addColorStop(1.1,            'rgba(0,0,0,0)');   // luar oval: 0
+
+  mc.fillStyle = grad;
   mc.beginPath();
-  mc.ellipse(cx,cy,rx*(1-featherX/rx*0.5),ry*(1-featherY/ry*0.5),0,0,Math.PI*2);
+  mc.arc(0, 0, 1.1, 0, Math.PI*2); // sedikit lebih dari radius agar gradient penuh
   mc.fill();
+  mc.restore();
 
-  // Apply mask sebagai destination-in
+  // Apply mask sebagai destination-in ke targetCtx
   targetCtx.save();
-  targetCtx.globalCompositeOperation='destination-in';
-  targetCtx.drawImage(mask,0,0);
+  targetCtx.globalCompositeOperation = 'destination-in';
+  targetCtx.drawImage(mask, 0, 0);
   targetCtx.restore();
 }
 
@@ -428,7 +447,7 @@ function fxSmooth(){
   applyOvalFeatherMask(oc);
   // Erase mata/alis dengan feather
   [Z.LE,Z.RE,Z.LB,Z.RB].forEach((zone,i)=>{
-    const expand=[14,14,16,16][i];
+    const expand=[18,18,22,22][i];
     const eyeMask=applyFeatheredExclude(oc,zone,expand,expand*0.7,8);
     oc.save();oc.globalCompositeOperation='destination-out';oc.drawImage(eyeMask,0,0);oc.restore();
   });
@@ -520,7 +539,7 @@ function fxShadeOverlay(){
   applyOvalFeatherMask(oc);
   // Erase mata
   [Z.LE,Z.RE,Z.LB,Z.RB].forEach((zone,i)=>{
-    const expand=[14,14,16,16][i];
+    const expand=[18,18,22,22][i];
     const eyeMask=applyFeatheredExclude(oc,zone,expand,expand*0.7,8);
     oc.save();oc.globalCompositeOperation='destination-out';oc.drawImage(eyeMask,0,0);oc.restore();
   });
