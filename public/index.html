@@ -338,8 +338,13 @@ function buildSmoothPath(c2d,pts){
   c2d.closePath();
 }
 
-// Build smooth clip path dari oval pts
-function buildOvalClipPath(c2d, pts){
+
+// Gambar feather ring di tepi oval setelah composite
+// Teknik: gambar gradient dari tepi ke dalam (transparan→opak background)
+// Ini "melt" batas filter dengan kulit natural
+// Render semua efek — RINGAN, tidak ada heavy gradient mask per frame
+// Oval path smooth dari landmark
+function buildOvalPath(c2d, pts){
   c2d.beginPath();
   c2d.moveTo(pts[0].x, pts[0].y);
   for(let i=1;i<pts.length;i++){
@@ -349,163 +354,134 @@ function buildOvalClipPath(c2d, pts){
   c2d.closePath();
 }
 
-// Gambar feather ring di tepi oval setelah composite
-// Teknik: gambar gradient dari tepi ke dalam (transparan→opak background)
-// Ini "melt" batas filter dengan kulit natural
-function drawFeatherEdge(){
-  const pts=getOvalPts();
+// Feather ring di tepi oval - halus dan natural
+function drawFeatherEdge(pts){
   let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
   pts.forEach(p=>{minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y);});
-  const cx=(minX+maxX)/2,cy=(minY+maxY)/2;
-  const rx=(maxX-minX)/2,ry=(maxY-minY)/2;
-  // Feather width: 18% dari rata2 radius
-  const fw=((rx+ry)/2)*0.18;
-  // Gambar ring: dari rx ke rx-fw (inner feather)
-  // Pakai 8 concentric path dengan opacity rendah → smooth blend
+  const cx=(minX+maxX)/2, cy=(minY+maxY)/2;
+  const rx=(maxX-minX)/2, ry=(maxY-minY)/2;
+  // Gambar 12 ring dari tepi masuk ke dalam dengan opacity menurun
+  const steps=12;
   ctx.save();
-  for(let i=0;i<8;i++){
-    const t=i/8; // 0=tepi, 1=dalam
-    const alpha=(1-t)*0.13; // tepi lebih opak (erase filter), dalam transparan
-    const scX=1-(t*fw/rx)*0.5;
-    const scY=1-(t*fw/ry)*0.5;
-    // Gambar annular ring tipis dengan destination-out
-    ctx.globalCompositeOperation='destination-out';
+  ctx.globalCompositeOperation='destination-out';
+  for(let i=0;i<steps;i++){
+    const t=i/steps; // 0=tepi luar, 1=dalam
+    // Opacity tinggi di tepi, cepat turun ke dalam
+    const alpha = Math.pow(1-t, 2.5) * 0.22;
+    const srx = rx * (1 - t*0.22);
+    const sry = ry * (1 - t*0.22);
     ctx.fillStyle=`rgba(0,0,0,${alpha})`;
-    ctx.save();
-    ctx.translate(cx,cy);ctx.scale(rx*scX,ry*scY);
-    ctx.beginPath();ctx.arc(0,0,1,0,Math.PI*2);
-    ctx.restore();
-    // Kita tidak bisa scale lalu fill ellipse langsung
-    // Pakai ellipse method
     ctx.beginPath();
-    ctx.ellipse(cx,cy,rx*(1-t*fw/rx*0.5),ry*(1-t*fw/ry*0.5),0,0,Math.PI*2);
+    ctx.ellipse(cx, cy, srx, sry, 0, 0, Math.PI*2);
     ctx.fill();
   }
   ctx.globalCompositeOperation='source-over';
   ctx.restore();
 }
 
-// Render semua efek — RINGAN, tidak ada heavy gradient mask per frame
 function renderAllEffects(){
-  const W=canvas.width,H=canvas.height;
+  const W=canvas.width, H=canvas.height;
   const pts=getOvalPts();
 
-  // Hitung centroid oval untuk eye exclude
-  const eyeZones=[
-    {idx:Z.LE,ex:16,ey:11},
-    {idx:Z.RE,ex:16,ey:11},
-    {idx:Z.LB,ex:20,ey:12},
-    {idx:Z.RB,ex:20,ey:12}
-  ];
-
-  // Helper: buat clip path oval - exclude mata/alis (evenodd)
-  function clipFaceExcludeEyes(c2d){
-    c2d.beginPath();
-    buildOvalClipPath(c2d, pts);
-    // Tambah eye zones sebagai hole (evenodd)
-    eyeZones.forEach(z=>{
-      const p2=z.idx.map(i=>lm(i));
-      let mnX=Infinity,mxX=-Infinity,mnY=Infinity,mxY=-Infinity;
-      p2.forEach(p=>{mnX=Math.min(mnX,p.x);mxX=Math.max(mxX,p.x);mnY=Math.min(mnY,p.y);mxY=Math.max(mxY,p.y);});
-      const ecx=(mnX+mxX)/2,ecy=(mnY+mxY)/2;
-      const erx=(mxX-mnX)/2+z.ex,ery=(mxY-mnY)/2+z.ey;
-      c2d.ellipse(ecx,ecy,erx,ery,0,0,Math.PI*2);
-    });
-    c2d.clip('evenodd');
-  }
-
-  // ── Smooth ──
+  // ── Smooth skin (natural, tipis) ──
   if(fx.smooth){
     let r=255,g=218,b=180;
     if(selectedHex){const c=hex2rgb(selectedHex);r=c.r;g=c.g;b=c.b;}
     ctx.save();
-    clipFaceExcludeEyes(ctx);
-    for(let i=0;i<5;i++){
-      ctx.fillStyle=`rgba(${r},${g},${b},${intensity*0.05})`;
+    // Clip ke oval saja - tidak exclude mata, efek terlalu tipis untuk terlihat di mata
+    buildOvalPath(ctx, pts); ctx.clip();
+    // 4 layer sangat tipis = halus natural
+    for(let i=0;i<4;i++){
+      ctx.fillStyle=`rgba(${r},${g},${b},${intensity*0.04})`;
       ctx.fillRect(0,0,W,H);
     }
     ctx.restore();
   }
 
-  // ── Bright ──
+  // ── Brightening (screen blend, natural glow) ──
   if(fx.bright){
-    const n=cen(Z.NOSE),rad=W*0.42,a=intensity*0.22;
+    const n=cen(Z.NOSE), rad=W*0.38, a=intensity*0.18;
     ctx.save();
-    clipFaceExcludeEyes(ctx);
+    buildOvalPath(ctx, pts); ctx.clip();
     ctx.globalCompositeOperation='screen';
     const g=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,rad);
-    g.addColorStop(0,`rgba(255,250,235,${a})`);
-    g.addColorStop(.5,`rgba(255,248,220,${a*.5})`);
-    g.addColorStop(1,'rgba(255,248,220,0)');
-    ctx.fillStyle=g;ctx.beginPath();ctx.arc(n.x,n.y,rad,0,Math.PI*2);ctx.fill();
+    g.addColorStop(0,  `rgba(255,250,235,${a})`);
+    g.addColorStop(0.6,`rgba(255,248,220,${a*0.4})`);
+    g.addColorStop(1,  'rgba(255,248,220,0)');
+    ctx.fillStyle=g;
+    ctx.beginPath();ctx.arc(n.x,n.y,rad,0,Math.PI*2);ctx.fill();
     ctx.restore();
   }
 
-  // ── Blush ──
+  // ── Blush pipi (natural rose/peach) ──
   if(fx.blush){
+    const t=blushHue/100;
+    const r=Math.round(220+t*12),g=Math.round(100+t*49),b=Math.round(136-t*66);
     [Z.LC,Z.RC].forEach(idx=>{
-      const c=cen(idx),rx=W*0.1,ry=H*0.08,a=intensity*0.48;
-      const t=blushHue/100,r=Math.round(220+t*12),g=Math.round(100+t*49),b=Math.round(136-t*66);
+      const c=cen(idx), bx=W*0.095, by=H*0.075, a=intensity*0.45;
       ctx.save();
-      ctx.beginPath();buildOvalClipPath(ctx,pts);ctx.clip();
+      buildOvalPath(ctx,pts); ctx.clip();
       ctx.globalCompositeOperation='multiply';
-      ctx.translate(c.x,c.y);ctx.scale(1,ry/rx);
-      const gr=ctx.createRadialGradient(0,0,0,0,0,rx);
-      gr.addColorStop(0,`rgba(${r},${g},${b},${a})`);
-      gr.addColorStop(.65,`rgba(${r},${g},${b},${a*0.2})`);
-      gr.addColorStop(1,`rgba(${r},${g},${b},0)`);
-      ctx.fillStyle=gr;ctx.beginPath();ctx.arc(0,0,rx*1.1,0,Math.PI*2);ctx.fill();
+      ctx.translate(c.x,c.y); ctx.scale(1, by/bx);
+      const gr=ctx.createRadialGradient(0,0,0,0,0,bx);
+      gr.addColorStop(0,   `rgba(${r},${g},${b},${a})`);
+      gr.addColorStop(0.5, `rgba(${r},${g},${b},${a*0.35})`);
+      gr.addColorStop(1,   `rgba(${r},${g},${b},0)`);
+      ctx.fillStyle=gr;
+      ctx.beginPath();ctx.arc(0,0,bx,0,Math.PI*2);ctx.fill();
       ctx.restore();
     });
   }
 
-  // ── Highlight ──
+  // ── Highlight hidung & dahi (dewy shimmer) ──
   if(fx.highlight){
-    const t4=lm(4),t6=lm(6),a=intensity*0.38;
+    const t4=lm(4), t6=lm(6), a=intensity*0.35;
     ctx.save();
     ctx.globalCompositeOperation='screen';
-    const bw=W*0.018,bh=Math.abs(t4.y-t6.y)+10;
+    // Nose bridge shimmer
+    const bw=W*0.016, bh=Math.abs(t4.y-t6.y)+10;
     const ng=ctx.createLinearGradient(t6.x-bw,0,t6.x+bw,0);
     ng.addColorStop(0,'rgba(255,255,255,0)');
-    ng.addColorStop(.5,`rgba(255,253,245,${a*0.7})`);
+    ng.addColorStop(.5,`rgba(255,253,248,${a*0.65})`);
     ng.addColorStop(1,'rgba(255,255,255,0)');
-    ctx.fillStyle=ng;ctx.fillRect(t6.x-bw,t6.y-2,bw*2,bh);
+    ctx.fillStyle=ng; ctx.fillRect(t6.x-bw,t6.y,bw*2,bh);
+    // Dahi glow
     const fh=cen(Z.FH);
-    const fg=ctx.createRadialGradient(fh.x,fh.y,0,fh.x,fh.y,W*0.10);
-    fg.addColorStop(0,`rgba(255,253,240,${a*0.26})`);
-    fg.addColorStop(1,'rgba(255,253,240,0)');
-    ctx.fillStyle=fg;ctx.beginPath();ctx.arc(fh.x,fh.y,W*0.10,0,Math.PI*2);ctx.fill();
+    const fg=ctx.createRadialGradient(fh.x,fh.y,0,fh.x,fh.y,W*0.09);
+    fg.addColorStop(0,`rgba(255,253,242,${a*0.22})`);
+    fg.addColorStop(1,'rgba(255,253,242,0)');
+    ctx.fillStyle=fg;ctx.beginPath();ctx.arc(fh.x,fh.y,W*0.09,0,Math.PI*2);ctx.fill();
     ctx.restore();
   }
 
-  // ── Under eye ──
+  // ── Under eye brightening ──
   if(fx.undereye){
     [Z.LE,Z.RE].forEach(idx=>{
-      const c=cen(idx),r=W*0.046,a=intensity*0.30;
+      const c=cen(idx), r=W*0.042, a=intensity*0.28;
       ctx.save();ctx.globalCompositeOperation='screen';
-      const g=ctx.createRadialGradient(c.x,c.y+r*0.5,0,c.x,c.y+r*0.5,r*0.8);
+      const g=ctx.createRadialGradient(c.x,c.y+r*0.6,0,c.x,c.y+r*0.6,r*0.75);
       g.addColorStop(0,`rgba(255,248,230,${a})`);
-      g.addColorStop(.6,`rgba(255,245,215,${a*0.25})`);
+      g.addColorStop(.7,`rgba(255,245,215,${a*0.2})`);
       g.addColorStop(1,'rgba(255,245,215,0)');
       ctx.fillStyle=g;ctx.beginPath();
-      ctx.ellipse(c.x,c.y+r*0.5,r*0.7,r*0.40,0,0,Math.PI*2);
+      ctx.ellipse(c.x,c.y+r*0.6,r*0.65,r*0.35,0,0,Math.PI*2);
       ctx.fill();ctx.restore();
     });
   }
 
-  // ── Shade overlay ──
+  // ── Shade foundation overlay ──
   if(selectedHex&&shadeMix>=0.05){
-    const{r,g,b}=hex2rgb(selectedHex),a=intensity*shadeMix*0.26;
+    const{r,g,b}=hex2rgb(selectedHex), a=intensity*shadeMix*0.22;
     ctx.save();
-    ctx.beginPath();buildOvalClipPath(ctx,pts);ctx.clip();
+    buildOvalPath(ctx,pts); ctx.clip();
     ctx.globalCompositeOperation='multiply';
     ctx.fillStyle=`rgba(${r},${g},${b},${a})`;
     ctx.fillRect(0,0,W,H);
     ctx.restore();
   }
 
-  // ── Feather tepi oval — gambar SETELAH semua efek ──
-  drawFeatherEdge();
+  // ── Feather tepi oval - natural blend ──
+  drawFeatherEdge(pts);
 }
 
 // Guide line di canvas terpisah (tidak masuk export)
