@@ -277,11 +277,22 @@ input[type=range]::-moz-range-thumb {
 <script>
 const BRANDS=[{id:"wardah",name:"Wardah",products:[{id:"w-lc",name:"Lightening Cushion",shades:[{id:"01",name:"Ivory",hex:"#F5E6D3"},{id:"02",name:"Natural Beige",hex:"#EDD5B3"},{id:"03",name:"Sand Beige",hex:"#D4B896"},{id:"04",name:"Warm Beige",hex:"#C9A882"},{id:"05",name:"Caramel",hex:"#B8935A"}]},{id:"w-em",name:"Exclusive Matte",shades:[{id:"01",name:"Light Beige",hex:"#F2DFC8"},{id:"02",name:"Natural",hex:"#E8CBA8"},{id:"03",name:"Buff Beige",hex:"#D4B48C"}]}]},{id:"emina",name:"Emina",products:[{id:"e-bb",name:"BB Cushion",shades:[{id:"01",name:"Porcelain",hex:"#F8EAD8"},{id:"02",name:"Natural Beige",hex:"#EDCFA8"},{id:"03",name:"Golden Beige",hex:"#D4A876"},{id:"04",name:"Honey",hex:"#C49060"}]}]},{id:"maybelline",name:"Maybelline",products:[{id:"m-ss",name:"SuperStay Cushion",shades:[{id:"10",name:"Ivory",hex:"#F5E2CC"},{id:"20",name:"Cameo",hex:"#EDD0A8"},{id:"21",name:"Nude Beige",hex:"#E4C090"},{id:"30",name:"Sand",hex:"#D4A872"},{id:"40",name:"Fawn",hex:"#C49060"},{id:"50",name:"Sun Beige",hex:"#B07840"}]},{id:"m-fm",name:"Fit Me Cushion",shades:[{id:"110",name:"Porcelain",hex:"#F8E8D4"},{id:"120",name:"Classic Ivory",hex:"#F0D8B8"},{id:"130",name:"Buff Beige",hex:"#E4C898"},{id:"220",name:"Natural Beige",hex:"#D8B484"},{id:"230",name:"Natural Buff",hex:"#C8A070"},{id:"330",name:"Toffee",hex:"#A87848"}]}]},{id:"loreal",name:"L'Oréal",products:[{id:"l-tm",name:"True Match Cushion",shades:[{id:"W1",name:"Golden Ivory",hex:"#F4DFC0"},{id:"W2",name:"Golden Beige",hex:"#E8CA98"},{id:"W3",name:"Golden Wheat",hex:"#D4B07C"},{id:"N1",name:"Soft Ivory",hex:"#F4E2CC"},{id:"N2",name:"Vanilla",hex:"#EAD0A8"},{id:"C1",name:"Rose Ivory",hex:"#F0DDD0"},{id:"C2",name:"Rose Beige",hex:"#E0C4A8"}]}]},{id:"makeover",name:"Make Over",products:[{id:"mo-ps",name:"Powerstay Cushion",shades:[{id:"N10",name:"Light Porcelain",hex:"#F5E4D0"},{id:"N20",name:"Light Ivory",hex:"#EDD4B0"},{id:"N30",name:"Natural Beige",hex:"#DEC090"},{id:"W10",name:"Warm Porcelain",hex:"#F4DEC0"},{id:"W20",name:"Warm Ivory",hex:"#E8C898"},{id:"W30",name:"Warm Beige",hex:"#D4A870"},{id:"C10",name:"Cool Porcelain",hex:"#F4E2D4"}]}]},{id:"somethinc",name:"Somethinc",products:[{id:"sc-blur",name:"Blur + Bakuchiol",shades:[{id:"01W",name:"Alabaster",hex:"#F8EAD8"},{id:"02W",name:"Porcelain",hex:"#F0D8B8"},{id:"03N",name:"Natural Ivory",hex:"#E4C898"},{id:"04W",name:"Golden Beige",hex:"#D8B47C"},{id:"05W",name:"Caramel",hex:"#C49860"},{id:"06N",name:"Warm Sand",hex:"#B88448"}]}]},{id:"msglow",name:"MS Glow",products:[{id:"msg-fl",name:"Flawless Cushion",shades:[{id:"01",name:"Ivory",hex:"#F5E0C8"},{id:"02",name:"Beige",hex:"#E8C8A0"},{id:"03",name:"Sand",hex:"#D8B080"},{id:"04",name:"Golden",hex:"#C89860"}]}]},{id:"hanasui",name:"Hanasui",products:[{id:"hs-mt",name:"Mattedorable",shades:[{id:"01",name:"Porcelain White",hex:"#F8EAD8"},{id:"02",name:"Natural Beige",hex:"#EDCFA8"},{id:"03",name:"Warm Beige",hex:"#DEB888"},{id:"04",name:"Golden Beige",hex:"#CDA070"}]}]},{id:"pixy",name:"Pixy",products:[{id:"px-uv",name:"UV Whitening",shades:[{id:"01",name:"Light Beige",hex:"#F4E0C8"},{id:"02",name:"Beige",hex:"#E8CCB0"},{id:"03",name:"Natural Beige",hex:"#D8B890"}]}]},{id:"scarlett",name:"Scarlett",products:[{id:"sc-br",name:"Brightening Cushion",shades:[{id:"01",name:"Fair",hex:"#F5E4D2"},{id:"02",name:"Natural",hex:"#E8D0B0"},{id:"03",name:"Beige",hex:"#D8B890"},{id:"04",name:"Warm",hex:"#C8A070"}]}]}];
 
-let landmarks=null,intensity=.55,blushHue=40,shadeMix=.60,selectedHex=null,faceOn=false;
+let landmarks=null, intensity=.55, blushHue=40, shadeMix=.60;
+let selectedHex=null, faceOn=false;
 let fx={smooth:true,bright:true,blush:true,highlight:true,undereye:true};
-let activeBrand=null,activeProd=null,activeShade=null;
+let activeBrand=null, activeProd=null, activeShade=null;
 
-class KF{constructor(q=.005,r=.12){this.x=null;this.p=1;this.q=q;this.r=r;}u(z){if(this.x===null){this.x=z;return z;}this.p+=this.q;const k=this.p/(this.p+this.r);this.x+=k*(z-this.x);this.p*=(1-k);return this.x;}}
+class KF{
+  constructor(q=.005,r=.12){this.x=null;this.p=1;this.q=q;this.r=r;}
+  u(z){
+    if(this.x===null){this.x=z;return z;}
+    this.p+=this.q;
+    const k=this.p/(this.p+this.r);
+    this.x+=k*(z-this.x);
+    this.p*=(1-k);
+    return this.x;
+  }
+}
 const kfX=Array.from({length:478},()=>new KF());
 const kfY=Array.from({length:478},()=>new KF());
 
@@ -297,17 +308,29 @@ const Z={
   OV:[10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109]
 };
 
-// Canvas utama untuk efek filter (tanpa guide line)
-const video=document.getElementById('video');
-const canvas=document.getElementById('canvas');
-const ctx=canvas.getContext('2d');
-// Canvas overlay terpisah untuk guide line
-const guideCanvas=document.getElementById('guide-canvas');
-const gctx=guideCanvas.getContext('2d');
-
-const loadEl=document.getElementById('loading');
-const loadMsg=document.getElementById('load-msg');
+const video  = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+const guideCanvas = document.getElementById('guide-canvas');
+const gctx   = guideCanvas.getContext('2d');
+const loadEl = document.getElementById('loading');
+const loadMsg= document.getElementById('load-msg');
 const facePill=document.getElementById('face-pill');
+
+// ── REUSABLE offscreen canvases (dibuat sekali, di-reuse setiap frame) ──
+// Dibuat saat resolusi kamera diketahui
+let offMain=null, offMask=null, offMaskCtx=null, offMainCtx=null;
+
+function ensureOffscreens(w,h){
+  if(!offMain||offMain.width!==w||offMain.height!==h){
+    offMain=document.createElement('canvas');
+    offMain.width=w; offMain.height=h;
+    offMainCtx=offMain.getContext('2d');
+    offMask=document.createElement('canvas');
+    offMask.width=w; offMask.height=h;
+    offMaskCtx=offMask.getContext('2d');
+  }
+}
 
 function lm(i){const l=landmarks[i];return{x:l.x*canvas.width,y:l.y*canvas.height};}
 function cen(idx){let sx=0,sy=0;idx.forEach(i=>{sx+=landmarks[i].x;sy+=landmarks[i].y;});return{x:(sx/idx.length)*canvas.width,y:(sy/idx.length)*canvas.height};}
@@ -315,247 +338,222 @@ function hex2rgb(h){return{r:parseInt(h.slice(1,3),16),g:parseInt(h.slice(3,5),1
 
 function getOvalPts(){
   const raw=Z.OV.map(i=>lm(i));
-  // Hitung centroid
   let cx=0,cy=0;
   raw.forEach(p=>{cx+=p.x;cy+=p.y;});
-  cx/=raw.length;cy/=raw.length;
-  // Stretch vertikal 1.18x, horizontal 1.0x untuk oval lebih lonjong
-  return raw.map(p=>({
-    x: cx+(p.x-cx)*1.0,
-    y: cy+(p.y-cy)*1.08
-  }));
+  cx/=raw.length; cy/=raw.length;
+  return raw.map(p=>{
+    return{x:cx+(p.x-cx)*0.92, y:cy+(p.y-cy)*1.08};
+  });
 }
 
 function buildSmoothPath(c2d,pts){
   c2d.moveTo(pts[0].x,pts[0].y);
   for(let i=1;i<pts.length;i++){
-    const curr=pts[i],next=pts[(i+1)%pts.length];
+    const curr=pts[i], next=pts[(i+1)%pts.length];
     c2d.quadraticCurveTo(curr.x,curr.y,(curr.x+next.x)/2,(curr.y+next.y)/2);
   }
   c2d.closePath();
 }
 
-// Feathered exclude: gambar gradient radial di area mata/alis
-// supaya tepi filter fade halus, tidak ada garis keras
-function applyFeatheredExclude(c2d,indices,expandX,expandY,feather){
-  const pts=indices.map(i=>lm(i));
+// Buat oval feather mask ke offMask canvas (di-reuse, tidak createElement baru)
+function buildOvalMask(){
+  const W=canvas.width, H=canvas.height;
+  const pts=getOvalPts();
   let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
   pts.forEach(p=>{minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y);});
-  const ecx=(minX+maxX)/2, ecy=(minY+maxY)/2;
-  const rx=(maxX-minX)/2+expandX, ry=(maxY-minY)/2+expandY;
-
-  const offscreen=document.createElement('canvas');
-  offscreen.width=canvas.width; offscreen.height=canvas.height;
-  const oc=offscreen.getContext('2d');
-
-  // Feather lebar: dari dalam (opak) ke luar (transparan)
-  // Inner: solid, outer: fade over 40% of radius
-  oc.save();
-  oc.translate(ecx, ecy);
-  oc.scale(rx, ry);
-  const innerR = 0.5; // 50% radius = solid core
-  const g=oc.createRadialGradient(0,0,0, 0,0,1.2);
-  g.addColorStop(0,           'rgba(0,0,0,1)');
-  g.addColorStop(innerR,      'rgba(0,0,0,1)');
-  g.addColorStop(innerR*1.3,  'rgba(0,0,0,0.85)');
-  g.addColorStop(innerR*1.6,  'rgba(0,0,0,0.55)');
-  g.addColorStop(innerR*2.0,  'rgba(0,0,0,0.2)');
-  g.addColorStop(1.2,         'rgba(0,0,0,0)');
-  oc.fillStyle=g;
-  oc.beginPath(); oc.arc(0,0,1.2,0,Math.PI*2);
-  oc.fill();
-  oc.restore();
-  return offscreen;
-}
-
-
-// Oval feather mask - teknik pixel-level distance falloff
-// Setiap pixel dihitung jarak normalizednya ke pusat oval
-// Luar oval=0 (transparan), dalam=1 (opak), feather zone=transisi smooth
-function applyOvalFeatherMask(targetCtx){
-  const W=targetCtx.canvas.width, H=targetCtx.canvas.height;
-  const pts=getOvalPts();
-
-  // Hitung centroid & radius oval dari landmark
-  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
-  pts.forEach(p=>{
-    minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);
-    minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y);
-  });
   const cx=(minX+maxX)/2, cy=(minY+maxY)/2;
   const rx=(maxX-minX)/2, ry=(maxY-minY)/2;
 
-  // Feather width = 28% dari radius — sangat halus
-  const featherFrac = 0.28;
-  // Inner radius (fully opaque) = 72% dari radius oval
-  const innerRx = rx*(1-featherFrac);
-  const innerRy = ry*(1-featherFrac);
+  offMaskCtx.clearRect(0,0,W,H);
+  offMaskCtx.save();
+  offMaskCtx.translate(cx,cy);
+  offMaskCtx.scale(rx,ry);
 
-  // Buat mask via offscreen canvas dengan gradient radial
-  // Tapi karena ellipse bukan lingkaran, kita pakai teknik scale trick:
-  // Scale canvas sehingga ellipse jadi lingkaran, apply radial gradient, scale balik
-  const mask = document.createElement('canvas');
-  mask.width = W; mask.height = H;
-  const mc = mask.getContext('2d');
+  const grad=offMaskCtx.createRadialGradient(0,0,0, 0,0,1.0);
+  grad.addColorStop(0,     'rgba(0,0,0,1)');
+  grad.addColorStop(0.60,  'rgba(0,0,0,1)');
+  grad.addColorStop(0.72,  'rgba(0,0,0,0.95)');
+  grad.addColorStop(0.82,  'rgba(0,0,0,0.75)');
+  grad.addColorStop(0.90,  'rgba(0,0,0,0.45)');
+  grad.addColorStop(0.96,  'rgba(0,0,0,0.15)');
+  grad.addColorStop(1.0,   'rgba(0,0,0,0)');
 
-  // Gambar gradient radial yang mengisi oval dengan feather di tepi
-  // Caranya: transform ke ruang ellipse (normalized), apply gradient
-  mc.save();
-  mc.translate(cx, cy);
-  mc.scale(rx, ry); // transform: ellipse → circle radius 1
+  offMaskCtx.fillStyle=grad;
+  offMaskCtx.beginPath();
+  offMaskCtx.arc(0,0,1.0,0,Math.PI*2);
+  offMaskCtx.fill();
+  offMaskCtx.restore();
 
-  // Radial gradient dari pusat (opak) ke tepi+beyond (transparan)
-  // innerR dalam normalized space = 1-featherFrac
-  const innerR = 1 - featherFrac;
-  const grad = mc.createRadialGradient(0,0, innerR*0.0, 0,0, 1.0);
-  grad.addColorStop(0,              'rgba(0,0,0,1)');   // pusat: opak penuh
-  grad.addColorStop(innerR*0.7,     'rgba(0,0,0,1)');   // masih opak
-  grad.addColorStop(innerR,         'rgba(0,0,0,0.95)'); // mulai fade
-  grad.addColorStop(innerR*1.15,    'rgba(0,0,0,0.75)');
-  grad.addColorStop(innerR*1.30,    'rgba(0,0,0,0.45)');
-  grad.addColorStop(innerR*1.50,    'rgba(0,0,0,0.18)');
-  grad.addColorStop(1.0,            'rgba(0,0,0,0)');   // tepi oval: transparan
-  grad.addColorStop(1.1,            'rgba(0,0,0,0)');   // luar oval: 0
+  // Exclude mata & alis dengan feathered erase
+  const zones=[
+    {idx:Z.LE,ex:18,ey:13},
+    {idx:Z.RE,ex:18,ey:13},
+    {idx:Z.LB,ex:22,ey:14},
+    {idx:Z.RB,ex:22,ey:14}
+  ];
+  zones.forEach(z=>{
+    const pts2=z.idx.map(i=>lm(i));
+    let mnX=Infinity,mxX=-Infinity,mnY=Infinity,mxY=-Infinity;
+    pts2.forEach(p=>{mnX=Math.min(mnX,p.x);mxX=Math.max(mxX,p.x);mnY=Math.min(mnY,p.y);mxY=Math.max(mxY,p.y);});
+    const ecx=(mnX+mxX)/2, ecy=(mnY+mxY)/2;
+    const erx=(mxX-mnX)/2+z.ex, ery=(mxY-mnY)/2+z.ey;
 
-  mc.fillStyle = grad;
-  mc.beginPath();
-  mc.arc(0, 0, 1.1, 0, Math.PI*2); // sedikit lebih dari radius agar gradient penuh
-  mc.fill();
-  mc.restore();
-
-  // Apply mask sebagai destination-in ke targetCtx
-  targetCtx.save();
-  targetCtx.globalCompositeOperation = 'destination-in';
-  targetCtx.drawImage(mask, 0, 0);
-  targetCtx.restore();
+    offMaskCtx.save();
+    offMaskCtx.globalCompositeOperation='destination-out';
+    offMaskCtx.translate(ecx,ecy);
+    offMaskCtx.scale(erx,ery);
+    const eg=offMaskCtx.createRadialGradient(0,0,0, 0,0,1.1);
+    eg.addColorStop(0,    'rgba(0,0,0,1)');
+    eg.addColorStop(0.45, 'rgba(0,0,0,1)');
+    eg.addColorStop(0.75, 'rgba(0,0,0,0.7)');
+    eg.addColorStop(1.0,  'rgba(0,0,0,0.2)');
+    eg.addColorStop(1.1,  'rgba(0,0,0,0)');
+    offMaskCtx.fillStyle=eg;
+    offMaskCtx.beginPath();offMaskCtx.arc(0,0,1.1,0,Math.PI*2);
+    offMaskCtx.fill();
+    offMaskCtx.restore();
+  });
 }
 
-function fxSmooth(){
-  if(!fx.smooth)return;
-  const off=document.createElement('canvas');
-  off.width=canvas.width;off.height=canvas.height;
-  const oc=off.getContext('2d');
-  oc.imageSmoothingEnabled=true;oc.imageSmoothingQuality='high';
-  // Gambar efek ke seluruh canvas dulu (tanpa clip)
-  let r=255,g=218,b=180;
-  if(selectedHex){const c=hex2rgb(selectedHex);r=c.r;g=c.g;b=c.b;}
-  for(let i=0;i<6;i++){
-    oc.fillStyle=`rgba(${r},${g},${b},${intensity*0.045})`;
-    oc.fillRect(0,0,off.width,off.height);
+// Render semua efek ke offMain, apply mask, composite ke canvas
+function renderAllEffects(){
+  const W=canvas.width, H=canvas.height;
+  ensureOffscreens(W,H);
+
+  // Build mask sekali per frame
+  buildOvalMask();
+
+  // Clear offMain
+  offMainCtx.clearRect(0,0,W,H);
+  offMainCtx.imageSmoothingEnabled=true;
+  offMainCtx.imageSmoothingQuality='high';
+
+  // ── Smooth ──
+  if(fx.smooth){
+    let r=255,g=218,b=180;
+    if(selectedHex){const c=hex2rgb(selectedHex);r=c.r;g=c.g;b=c.b;}
+    offMainCtx.save();
+    for(let i=0;i<5;i++){
+      offMainCtx.fillStyle=`rgba(${r},${g},${b},${intensity*0.05})`;
+      offMainCtx.fillRect(0,0,W,H);
+    }
+    offMainCtx.restore();
   }
-  // Apply oval feather mask (destination-in)
-  applyOvalFeatherMask(oc);
-  // Erase mata/alis dengan feather
-  [Z.LE,Z.RE,Z.LB,Z.RB].forEach((zone,i)=>{
-    const expand=[18,18,22,22][i];
-    const eyeMask=applyFeatheredExclude(oc,zone,expand,expand*0.7,8);
-    oc.save();oc.globalCompositeOperation='destination-out';oc.drawImage(eyeMask,0,0);oc.restore();
-  });
-  ctx.save();ctx.drawImage(off,0,0);ctx.restore();
-}
 
-function fxBright(){
-  if(!fx.bright)return;
-  const n=cen(Z.NOSE),rad=canvas.width*0.42,a=intensity*0.24;
-  const off=document.createElement('canvas');
-  off.width=canvas.width;off.height=canvas.height;
-  const oc=off.getContext('2d');
-  const g=oc.createRadialGradient(n.x,n.y,0,n.x,n.y,rad);
-  g.addColorStop(0,`rgba(255,250,235,${a})`);
-  g.addColorStop(.5,`rgba(255,248,220,${a*.5})`);
-  g.addColorStop(1,'rgba(255,248,220,0)');
-  oc.fillStyle=g;oc.beginPath();oc.arc(n.x,n.y,rad,0,Math.PI*2);oc.fill();
-  // Apply oval feather mask
-  applyOvalFeatherMask(oc);
-  // Erase mata
-  [Z.LE,Z.RE].forEach((zone)=>{
-    const eyeMask=applyFeatheredExclude(oc,zone,12,9,10);
-    oc.save();oc.globalCompositeOperation='destination-out';oc.drawImage(eyeMask,0,0);oc.restore();
-  });
-  ctx.save();ctx.globalCompositeOperation='screen';ctx.drawImage(off,0,0);ctx.restore();
-}
+  // ── Bright ──
+  if(fx.bright){
+    const n=cen(Z.NOSE), rad=W*0.42, a=intensity*0.22;
+    offMainCtx.save();
+    offMainCtx.globalCompositeOperation='screen';
+    const g=offMainCtx.createRadialGradient(n.x,n.y,0,n.x,n.y,rad);
+    g.addColorStop(0,`rgba(255,250,235,${a})`);
+    g.addColorStop(.5,`rgba(255,248,220,${a*.5})`);
+    g.addColorStop(1,'rgba(255,248,220,0)');
+    offMainCtx.fillStyle=g;
+    offMainCtx.beginPath();offMainCtx.arc(n.x,n.y,rad,0,Math.PI*2);
+    offMainCtx.fill();
+    offMainCtx.restore();
+  }
 
-function fxBlush(idx){
-  if(!fx.blush)return;
-  const c=cen(idx),rx=canvas.width*0.1,ry=canvas.height*0.08,a=intensity*0.5;
-  const t=blushHue/100,r=Math.round(220+t*12),g=Math.round(100+t*49),b=Math.round(136-t*66);
-  const off=document.createElement('canvas');
-  off.width=canvas.width;off.height=canvas.height;
-  const oc=off.getContext('2d');
-  oc.save();oc.translate(c.x,c.y);oc.scale(1,ry/rx);
-  const gr=oc.createRadialGradient(0,0,0,0,0,rx);
-  gr.addColorStop(0,`rgba(${r},${g},${b},${a})`);
-  gr.addColorStop(.65,`rgba(${r},${g},${b},${a*0.25})`);
-  gr.addColorStop(1,`rgba(${r},${g},${b},0)`);
-  oc.fillStyle=gr;oc.beginPath();oc.arc(0,0,rx*1.2,0,Math.PI*2);oc.fill();
-  oc.restore();
-  // Apply oval feather mask agar blush tidak bocor ke luar wajah
-  applyOvalFeatherMask(oc);
-  ctx.save();ctx.globalCompositeOperation='multiply';ctx.drawImage(off,0,0);ctx.restore();
-}
+  // ── Blush kiri & kanan ──
+  if(fx.blush){
+    [Z.LC,Z.RC].forEach(idx=>{
+      const c=cen(idx),rx=W*0.1,ry=H*0.08,a=intensity*0.48;
+      const t=blushHue/100;
+      const r=Math.round(220+t*12),g=Math.round(100+t*49),b=Math.round(136-t*66);
+      offMainCtx.save();
+      offMainCtx.globalCompositeOperation='multiply';
+      offMainCtx.translate(c.x,c.y);offMainCtx.scale(1,ry/rx);
+      const gr=offMainCtx.createRadialGradient(0,0,0,0,0,rx);
+      gr.addColorStop(0,`rgba(${r},${g},${b},${a})`);
+      gr.addColorStop(.65,`rgba(${r},${g},${b},${a*0.22})`);
+      gr.addColorStop(1,`rgba(${r},${g},${b},0)`);
+      offMainCtx.fillStyle=gr;
+      offMainCtx.beginPath();offMainCtx.arc(0,0,rx*1.1,0,Math.PI*2);
+      offMainCtx.fill();
+      offMainCtx.restore();
+    });
+  }
 
-function fxHighlight(){
-  if(!fx.highlight)return;
-  const t4=lm(4),t6=lm(6),a=intensity*0.42;
-  const off=document.createElement('canvas');
-  off.width=canvas.width;off.height=canvas.height;
-  const oc=off.getContext('2d');
-  const bw=canvas.width*0.022,bh=Math.abs(t4.y-t6.y)+12;
-  const ng=oc.createLinearGradient(t6.x-bw,0,t6.x+bw,0);
-  ng.addColorStop(0,'rgba(255,255,255,0)');
-  ng.addColorStop(.5,`rgba(255,253,245,${a*0.75})`);
-  ng.addColorStop(1,'rgba(255,255,255,0)');
-  oc.fillStyle=ng;oc.fillRect(t6.x-bw,t6.y-2,bw*2,bh);
-  const fh=cen(Z.FH);
-  const fg=oc.createRadialGradient(fh.x,fh.y,0,fh.x,fh.y,canvas.width*0.12);
-  fg.addColorStop(0,`rgba(255,253,240,${a*0.3})`);
-  fg.addColorStop(1,'rgba(255,253,240,0)');
-  oc.fillStyle=fg;oc.beginPath();oc.arc(fh.x,fh.y,canvas.width*0.12,0,Math.PI*2);oc.fill();
-  applyOvalFeatherMask(oc);
-  ctx.save();ctx.globalCompositeOperation='screen';ctx.drawImage(off,0,0);ctx.restore();
-}
+  // ── Highlight ──
+  if(fx.highlight){
+    const t4=lm(4),t6=lm(6),a=intensity*0.40;
+    offMainCtx.save();
+    offMainCtx.globalCompositeOperation='screen';
+    const bw=W*0.020, bh=Math.abs(t4.y-t6.y)+10;
+    const ng=offMainCtx.createLinearGradient(t6.x-bw,0,t6.x+bw,0);
+    ng.addColorStop(0,'rgba(255,255,255,0)');
+    ng.addColorStop(.5,`rgba(255,253,245,${a*0.7})`);
+    ng.addColorStop(1,'rgba(255,255,255,0)');
+    offMainCtx.fillStyle=ng;
+    offMainCtx.fillRect(t6.x-bw,t6.y-2,bw*2,bh);
+    const fh=cen(Z.FH);
+    const fg=offMainCtx.createRadialGradient(fh.x,fh.y,0,fh.x,fh.y,W*0.11);
+    fg.addColorStop(0,`rgba(255,253,240,${a*0.28})`);
+    fg.addColorStop(1,'rgba(255,253,240,0)');
+    offMainCtx.fillStyle=fg;
+    offMainCtx.beginPath();offMainCtx.arc(fh.x,fh.y,W*0.11,0,Math.PI*2);
+    offMainCtx.fill();
+    offMainCtx.restore();
+  }
 
-function fxUnderEye(idx){
-  if(!fx.undereye)return;
-  const c=cen(idx),r=canvas.width*0.05,a=intensity*0.34;
-  ctx.save();ctx.globalCompositeOperation='screen';
-  const g=ctx.createRadialGradient(c.x,c.y+r*0.4,0,c.x,c.y+r*0.4,r*0.9);
-  g.addColorStop(0,`rgba(255,248,230,${a})`);
-  g.addColorStop(.6,`rgba(255,245,215,${a*0.3})`);
-  g.addColorStop(1,'rgba(255,245,215,0)');
-  ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(c.x,c.y+r*0.4,r*0.8,r*0.45,0,0,Math.PI*2);ctx.fill();
+  // ── Under eye ──
+  if(fx.undereye){
+    [Z.LE,Z.RE].forEach(idx=>{
+      const c=cen(idx),r=W*0.048,a=intensity*0.32;
+      offMainCtx.save();
+      offMainCtx.globalCompositeOperation='screen';
+      const g=offMainCtx.createRadialGradient(c.x,c.y+r*0.5,0,c.x,c.y+r*0.5,r*0.85);
+      g.addColorStop(0,`rgba(255,248,230,${a})`);
+      g.addColorStop(.6,`rgba(255,245,215,${a*0.28})`);
+      g.addColorStop(1,'rgba(255,245,215,0)');
+      offMainCtx.fillStyle=g;
+      offMainCtx.beginPath();
+      offMainCtx.ellipse(c.x,c.y+r*0.5,r*0.75,r*0.42,0,0,Math.PI*2);
+      offMainCtx.fill();
+      offMainCtx.restore();
+    });
+  }
+
+  // ── Shade overlay ──
+  if(selectedHex&&shadeMix>=0.05){
+    const{r,g,b}=hex2rgb(selectedHex),a=intensity*shadeMix*0.26;
+    offMainCtx.save();
+    offMainCtx.globalCompositeOperation='multiply';
+    offMainCtx.fillStyle=`rgba(${r},${g},${b},${a})`;
+    offMainCtx.fillRect(0,0,W,H);
+    offMainCtx.restore();
+  }
+
+  // ── Apply oval feather mask ke offMain ──
+  offMainCtx.save();
+  offMainCtx.globalCompositeOperation='destination-in';
+  offMainCtx.drawImage(offMask,0,0);
+  offMainCtx.restore();
+
+  // ── Composite offMain ke canvas utama ──
+  ctx.save();
+  ctx.drawImage(offMain,0,0);
   ctx.restore();
 }
 
-function fxShadeOverlay(){
-  if(!selectedHex||shadeMix<0.05)return;
-  const{r,g,b}=hex2rgb(selectedHex),a=intensity*shadeMix*0.28;
-  const off=document.createElement('canvas');
-  off.width=canvas.width;off.height=canvas.height;
-  const oc=off.getContext('2d');
-  oc.fillStyle=`rgba(${r},${g},${b},${a})`;
-  oc.fillRect(0,0,off.width,off.height);
-  // Apply oval feather mask
-  applyOvalFeatherMask(oc);
-  // Erase mata
-  [Z.LE,Z.RE,Z.LB,Z.RB].forEach((zone,i)=>{
-    const expand=[18,18,22,22][i];
-    const eyeMask=applyFeatheredExclude(oc,zone,expand,expand*0.7,8);
-    oc.save();oc.globalCompositeOperation='destination-out';oc.drawImage(eyeMask,0,0);oc.restore();
-  });
-  ctx.save();ctx.globalCompositeOperation='multiply';ctx.drawImage(off,0,0);ctx.restore();
-}
-
-// Guide line digambar di canvas TERPISAH (tidak ikut export)
+// Guide line di canvas terpisah (tidak masuk export)
 function drawFaceGuide(){
   if(!landmarks)return;
-  guideCanvas.width=canvas.width;guideCanvas.height=canvas.height;
+  guideCanvas.width=canvas.width;
+  guideCanvas.height=canvas.height;
   gctx.clearRect(0,0,guideCanvas.width,guideCanvas.height);
   const pts=getOvalPts();
   gctx.save();
-  gctx.beginPath();buildSmoothPath(gctx,pts);
-  gctx.strokeStyle=faceOn?'rgba(240,40,122,0.75)':'rgba(255,255,255,0.12)';
-  if(faceOn){gctx.shadowColor='rgba(240,40,122,0.5)';gctx.shadowBlur=12;}
+  gctx.beginPath();
+  buildSmoothPath(gctx,pts);
+  if(faceOn){
+    gctx.strokeStyle='rgba(240,40,122,0.7)';
+    gctx.shadowColor='rgba(240,40,122,0.4)';
+    gctx.shadowBlur=10;
+  }else{
+    gctx.strokeStyle='rgba(255,255,255,0.12)';
+  }
   gctx.lineWidth=Math.max(1.5,canvas.width*0.002);
   gctx.stroke();
   gctx.restore();
@@ -564,20 +562,20 @@ function drawFaceGuide(){
 function onResults(res){
   const vw=res.image.width||video.videoWidth||1280;
   const vh=res.image.height||video.videoHeight||720;
-  if(canvas.width!==vw||canvas.height!==vh){canvas.width=vw;canvas.height=vh;}
+  if(canvas.width!==vw||canvas.height!==vh){
+    canvas.width=vw; canvas.height=vh;
+    guideCanvas.width=vw; guideCanvas.height=vh;
+  }
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+  ctx.imageSmoothingEnabled=true;
+  ctx.imageSmoothingQuality='high';
   ctx.drawImage(res.image,0,0,canvas.width,canvas.height);
 
   if(res.multiFaceLandmarks&&res.multiFaceLandmarks.length>0){
     const raw=res.multiFaceLandmarks[0];
     landmarks=raw.map((l,i)=>{return{x:kfX[i].u(l.x),y:kfY[i].u(l.y),z:l.z}});
-    fxSmooth();fxBright();
-    fxBlush(Z.LC);fxBlush(Z.RC);
-    fxHighlight();
-    fxUnderEye(Z.LE);fxUnderEye(Z.RE);
-    fxShadeOverlay();
-    drawFaceGuide(); // Digambar di canvas terpisah!
+    renderAllEffects();
+    drawFaceGuide();
     if(!faceOn){faceOn=true;facePill.textContent='✦ Face detected';facePill.classList.add('on');}
   }else{
     gctx.clearRect(0,0,guideCanvas.width,guideCanvas.height);
@@ -592,32 +590,39 @@ async function init(){
     fm.setOptions({maxNumFaces:1,refineLandmarks:true,minDetectionConfidence:0.5,minTrackingConfidence:0.5});
     fm.onResults(onResults);
     loadMsg.textContent='Mengakses kamera…';
-    const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1920},height:{ideal:1080}}});
+    const s=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:'user',width:{ideal:1920},height:{ideal:1080}}
+    });
     video.srcObject=s;
     await new Promise(r=>{video.onloadedmetadata=r;});
-    canvas.width=video.videoWidth;canvas.height=video.videoHeight;
-    guideCanvas.width=canvas.width;guideCanvas.height=canvas.height;
+    canvas.width=video.videoWidth; canvas.height=video.videoHeight;
+    guideCanvas.width=canvas.width; guideCanvas.height=canvas.height;
+    ensureOffscreens(canvas.width,canvas.height);
     loadMsg.textContent='Menginisialisasi filter…';
-    const cam=new Camera(video,{onFrame:async()=>{await fm.send({image:video});},width:1920,height:1080});
+    const cam=new Camera(video,{
+      onFrame:async()=>{await fm.send({image:video})},
+      width:1920,height:1080
+    });
     await cam.start();
     loadEl.style.display='none';
   }catch(e){
-    // Fallback ke 1280x720 kalau 1920 tidak support
     try{
-      const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280},height:{ideal:720}}});
+      const s=await navigator.mediaDevices.getUserMedia({
+        video:{facingMode:'user',width:{ideal:1280},height:{ideal:720}}
+      });
       video.srcObject=s;
       await new Promise(r=>{video.onloadedmetadata=r;});
-      canvas.width=video.videoWidth;canvas.height=video.videoHeight;
-      loadMsg.textContent='Menginisialisasi filter…';
+      canvas.width=video.videoWidth; canvas.height=video.videoHeight;
+      guideCanvas.width=canvas.width; guideCanvas.height=canvas.height;
+      ensureOffscreens(canvas.width,canvas.height);
       const fm=new FaceMesh({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
       fm.setOptions({maxNumFaces:1,refineLandmarks:true,minDetectionConfidence:0.5,minTrackingConfidence:0.5});
       fm.onResults(onResults);
-      const cam=new Camera(video,{onFrame:async()=>{await fm.send({image:video});},width:1280,height:720});
+      const cam=new Camera(video,{onFrame:async()=>{await fm.send({image:video})},width:1280,height:720});
       await cam.start();
       loadEl.style.display='none';
     }catch(e2){
       loadMsg.textContent='⚠ Izinkan akses kamera lalu refresh';
-      console.error(e2);
     }
   }
 }
@@ -645,9 +650,9 @@ renderBrands();renderProds();renderShades();
 document.getElementById('s-int').oninput=e=>{intensity=e.target.value/100;};
 document.getElementById('s-blush').oninput=e=>{blushHue=+e.target.value;};
 document.getElementById('s-shade').oninput=e=>{shadeMix=e.target.value/100;};
-document.querySelectorAll('.fx-btn').forEach(b=>{b.onclick=()=>{const k=b.dataset.fx;fx[k]=!fx[k];b.classList.toggle('on',fx[k]);};});
+document.querySelectorAll('.fx-btn').forEach(b=>{b.onclick=()=>{const k=b.dataset.fx;fx[k]=!fx[k];b.classList.toggle('on',fx[k]);}});
 
-// Export HANYA dari canvas (tanpa guide-canvas) + logo + info produk
+// Export dengan logo + info produk
 document.getElementById('cam-btn').onclick=()=>{
   const W=canvas.width, H=canvas.height;
   const tmp=document.createElement('canvas');
@@ -655,84 +660,55 @@ document.getElementById('cam-btn').onclick=()=>{
   const ec=tmp.getContext('2d');
   ec.imageSmoothingEnabled=true;
   ec.imageSmoothingQuality='high';
-
-  // Step 1: video bersih (flip mirror)
-  ec.save();
-  ec.translate(W,0); ec.scale(-1,1);
+  ec.save();ec.translate(W,0);ec.scale(-1,1);
   ec.drawImage(video,0,0,W,H);
   ec.restore();
-
-  // Step 2: overlay filter (tanpa guide line)
   ec.drawImage(canvas,0,0,W,H);
 
-  // Step 3: watermark area bawah - gradient overlay
-  const barH = Math.round(H*0.14);
-  const barGrad = ec.createLinearGradient(0, H-barH, 0, H);
+  const barH=Math.round(H*0.14);
+  const barGrad=ec.createLinearGradient(0,H-barH,0,H);
   barGrad.addColorStop(0,'rgba(0,0,0,0)');
   barGrad.addColorStop(1,'rgba(0,0,0,0.72)');
-  ec.fillStyle=barGrad;
-  ec.fillRect(0, H-barH, W, barH);
+  ec.fillStyle=barGrad;ec.fillRect(0,H-barH,W,barH);
 
-  // Step 4: logo Opshe kiri bawah
-  const logoImg = new Image();
-  logoImg.onload = ()=>{
-    const logoSize = Math.round(H*0.072);
-    const logoPad = Math.round(H*0.022);
-    const logoY = H - logoPad - logoSize;
-    // Lingkaran putih di belakang logo
-    ec.save();
-    ec.beginPath();
-    ec.arc(logoPad+logoSize/2, logoY+logoSize/2, logoSize/2+3, 0, Math.PI*2);
-    ec.fillStyle='rgba(255,255,255,0.15)';
-    ec.fill();
-    ec.restore();
-    ec.drawImage(logoImg, logoPad, logoY, logoSize, logoSize);
+  const logoImg=new Image();
+  logoImg.onload=()=>{
+    const logoSize=Math.round(H*0.072);
+    const logoPad=Math.round(H*0.022);
+    const logoY=H-logoPad-logoSize;
+    ec.drawImage(logoImg,logoPad,logoY,logoSize,logoSize);
 
-    // Step 5: teks info produk di kanan logo
-    const textX = logoPad + logoSize + Math.round(W*0.02);
-    const textY = logoY + Math.round(logoSize*0.2);
+    const textX=logoPad+logoSize+Math.round(W*0.02);
+    const textY=logoY+Math.round(logoSize*0.22);
     ec.save();
-    // Brand name
-    ec.font = `bold ${Math.round(H*0.022)}px -apple-system,BlinkMacSystemFont,sans-serif`;
-    ec.fillStyle = '#FFFFFF';
     ec.shadowColor='rgba(0,0,0,0.6)';ec.shadowBlur=6;
-    const brandName = activeBrand ? BRANDS.find(b=>b.id===activeBrand)?.name || '' : 'Opshe Beauty';
-    ec.fillText('Opshe Beauty', textX, textY);
-
-    // Produk + shade info
-    ec.font = `${Math.round(H*0.018)}px -apple-system,BlinkMacSystemFont,sans-serif`;
+    ec.font=`bold ${Math.round(H*0.022)}px -apple-system,sans-serif`;
+    ec.fillStyle='#fff';
+    ec.fillText('Opshe Beauty',textX,textY);
+    ec.font=`${Math.round(H*0.018)}px -apple-system,sans-serif`;
     ec.fillStyle='rgba(255,200,220,1)';
-    let prodInfo = 'Virtual Try On Cushion';
-    if(activeBrand && activeProd){
-      const brand=BRANDS.find(b=>b.id===activeBrand);
-      const prod=brand?.products.find(p=>p.id===activeProd);
-      prodInfo = prod?.name || prodInfo;
+    let prodInfo='Virtual Try On Cushion';
+    if(activeBrand&&activeProd){
+      const br=BRANDS.find(b=>b.id===activeBrand);
+      const pr=br?.products.find(p=>p.id===activeProd);
+      if(pr)prodInfo=`${br.name} – ${pr.name}`;
     }
-    ec.fillText(prodInfo, textX, textY + Math.round(H*0.026));
-
-    // Shade
-    ec.font = `${Math.round(H*0.016)}px -apple-system,BlinkMacSystemFont,sans-serif`;
-    ec.fillStyle='rgba(255,180,200,0.85)';
-    let shadeInfo = '';
-    if(activeShade && activeBrand && activeProd){
-      const brand=BRANDS.find(b=>b.id===activeBrand);
-      const prod=brand?.products.find(p=>p.id===activeProd);
-      const shade=prod?.shades.find(s=>s.id===activeShade);
-      if(shade) shadeInfo = `Shade ${shade.id} – ${shade.name}`;
+    ec.fillText(prodInfo,textX,textY+Math.round(H*0.026));
+    if(activeShade&&activeBrand&&activeProd){
+      const br=BRANDS.find(b=>b.id===activeBrand);
+      const pr=br?.products.find(p=>p.id===activeProd);
+      const sh=pr?.shades.find(s=>s.id===activeShade);
+      if(sh){
+        ec.font=`${Math.round(H*0.016)}px -apple-system,sans-serif`;
+        ec.fillStyle='rgba(255,180,200,0.9)';
+        ec.fillText(`Shade ${sh.id} – ${sh.name}`,textX,textY+Math.round(H*0.048));
+      }
     }
-    if(shadeInfo) ec.fillText(shadeInfo, textX, textY + Math.round(H*0.048));
-    ec.restore();
-
-    // Step 6: opshe.id watermark kanan bawah
-    ec.save();
-    ec.font = `${Math.round(H*0.016)}px -apple-system,BlinkMacSystemFont,sans-serif`;
-    ec.fillStyle='rgba(255,255,255,0.55)';
-    ec.shadowColor='rgba(0,0,0,0.5)';ec.shadowBlur=4;
     ec.textAlign='right';
-    ec.fillText('@opshe.id', W - Math.round(W*0.03), H - Math.round(H*0.022));
+    ec.font=`${Math.round(H*0.015)}px -apple-system,sans-serif`;
+    ec.fillStyle='rgba(255,255,255,0.5)';
+    ec.fillText('@opshe.id',W-Math.round(W*0.03),H-Math.round(H*0.02));
     ec.restore();
-
-    // Download
     const a=document.createElement('a');
     a.href=tmp.toDataURL('image/png');
     a.download='opshe-cushion.png';
