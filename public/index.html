@@ -546,9 +546,13 @@ document.getElementById('cam-btn').onclick=()=>{
   a.download='opshe-cushion.png';a.click();
 };
 
-init();
+// init dipanggil setelah semua script MediaPipe selesai load
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+<script>
+// Tunggu semua library siap baru init
+window.addEventListener('load', () => { init(); });
+</script>
 </body>
 </html>
