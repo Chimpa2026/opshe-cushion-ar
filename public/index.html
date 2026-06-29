@@ -1019,73 +1019,58 @@ document.getElementById('photo-download-btn').onclick=()=>{
 function enhanceExportPhoto(srcCanvas, zones){
   const W=srcCanvas.width, H=srcCanvas.height;
 
-  // ── Output canvas ──
+  // Output canvas
   const out=document.createElement('canvas');
   out.width=W; out.height=H;
   const oc=out.getContext('2d');
   oc.imageSmoothingEnabled=true;
   oc.imageSmoothingQuality='high';
 
-  // ── Step 1: Background blur (bokeh effect) ──
-  // Buat blur version dari seluruh gambar
-  const blurred=document.createElement('canvas');
-  blurred.width=W; blurred.height=H;
-  const bc=blurred.getContext('2d');
-  // Stack blur — gambar canvas asli berkali-kali dengan offset kecil
-  bc.drawImage(srcCanvas,0,0);
-  const blurRadius = Math.round(W * 0.008); // ~10px untuk 1280px
-  for(let pass=0;pass<3;pass++){
-    bc.filter=`blur(${blurRadius*(pass+1)}px)`;
-    bc.drawImage(blurred,0,0);
-  }
-  bc.filter='none';
+  // Gambar source ke out dulu
+  oc.drawImage(srcCanvas,0,0,W,H);
 
-  // ── Buat face mask untuk blend BG blur vs sharp face ──
-  const maskCanvas=document.createElement('canvas');
-  maskCanvas.width=W; maskCanvas.height=H;
-  const mc=maskCanvas.getContext('2d');
-
+  // ── Step 1: Background blur via CSS filter ──
   if(zones){
     const {fcx,fcy,frx,fry}=zones;
-    // Face area = sharp, luar = blurred
-    // Gradient dari wajah keluar
-    const expandX=frx*1.35, expandY=fry*1.35;
-    const featherX=frx*0.50, featherY=fry*0.50;
-    mc.save();
-    mc.translate(fcx,fcy);mc.scale(expandX,expandY);
-    const mg=mc.createRadialGradient(0,0,0,0,0,1);
-    mg.addColorStop(0,  'rgba(255,255,255,1)');   // wajah: sharp
-    mg.addColorStop(0.55,'rgba(255,255,255,1)');
-    mg.addColorStop(0.78,'rgba(255,255,255,0.7)');
-    mg.addColorStop(0.90,'rgba(255,255,255,0.3)');
-    mg.addColorStop(1.0, 'rgba(255,255,255,0)');   // bg: blurred
-    mc.fillStyle=mg;
-    mc.beginPath();mc.arc(0,0,1,0,Math.PI*2);mc.fill();
-    mc.restore();
-  } else {
-    // Tidak ada landmark: no blur
-    mc.fillStyle='white';mc.fillRect(0,0,W,H);
+    // Blur version
+    const bg=document.createElement('canvas');
+    bg.width=W; bg.height=H;
+    const bc=bg.getContext('2d');
+    bc.filter='blur(6px)';
+    bc.drawImage(srcCanvas,0,0,W,H);
+    bc.filter='none';
+    // Mask: wajah sharp, bg blur
+    // Gambar bg blur dulu, lalu overlay sharp wajah via mask
+    const tmp2=document.createElement('canvas');
+    tmp2.width=W; tmp2.height=H;
+    const tc=tmp2.getContext('2d');
+    tc.drawImage(bg,0,0); // bg blur full
+    // Face mask gradient (sharp area)
+    const expandX=frx*1.3, expandY=fry*1.3;
+    tc.save();
+    tc.globalCompositeOperation='destination-out';
+    const mg=tc.createRadialGradient(fcx,fcy,Math.min(frx,fry)*0.5,fcx,fcy,Math.max(expandX,expandY));
+    mg.addColorStop(0,'rgba(0,0,0,1)');
+    mg.addColorStop(0.6,'rgba(0,0,0,0.9)');
+    mg.addColorStop(0.85,'rgba(0,0,0,0.4)');
+    mg.addColorStop(1,'rgba(0,0,0,0)');
+    tc.fillStyle=mg;
+    tc.fillRect(0,0,W,H);
+    tc.restore();
+    // Composite: blur bg + sharp face
+    oc.clearRect(0,0,W,H);
+    oc.drawImage(srcCanvas,0,0,W,H); // sharp base
+    oc.save();
+    oc.globalCompositeOperation='destination-over';
+    oc.drawImage(tmp2,0,0); // blur bg underneath
+    oc.restore();
+    oc.globalCompositeOperation='source-over';
   }
 
-  // Composite: blurred BG + sharp face
-  oc.drawImage(blurred,0,0);                          // layer 1: bg blur
-  oc.save();
-  oc.globalCompositeOperation='destination-out';
-  oc.drawImage(maskCanvas,0,0);                       // cut face area
-  oc.restore();
-  // Gambar ulang sharp di area wajah
-  const sharpCanvas=document.createElement('canvas');
-  sharpCanvas.width=W; sharpCanvas.height=H;
-  const sc2=sharpCanvas.getContext('2d');
-  sc2.drawImage(srcCanvas,0,0);
-  oc.save();
-  oc.globalCompositeOperation='destination-over';
-  oc.drawImage(sc2,0,0);                              // layer 2: sharp face
-  oc.restore();
-  oc.globalCompositeOperation='source-over';
-
-  // ── Step 2: Pixel-level skin & detail enhancement ──
-  const imgData=oc.getImageData(0,0,W,H);
+  // ── Step 2: Pixel editing — color grade + skin smooth ──
+  let imgData;
+  try{ imgData=oc.getImageData(0,0,W,H); }
+  catch(e){ return out; } // CORS safety
   const data=imgData.data;
 
   for(let y=0;y<H;y++){
@@ -1094,68 +1079,47 @@ function enhanceExportPhoto(srcCanvas, zones){
       let r=data[i],g=data[i+1],b=data[i+2];
 
       // Face mask weight
-      let faceW=0;
+      let fW=0;
       if(zones){
-        const {fcx,fcy,frx,fry}=zones;
-        const dx=(x-fcx)/frx, dy=(y-fcy)/fry;
+        const dx=(x-zones.fcx)/zones.frx, dy=(y-zones.fcy)/zones.fry;
         const d=Math.sqrt(dx*dx+dy*dy);
-        faceW=d<0.72?1:d<1.0?Math.max(0,(1-d)/0.28):0;
+        fW=d<0.65?1:d<1.0?Math.max(0,(1-d)/0.35):0;
       }
 
-      // ── Frequency separation skin smooth (wajah) ──
-      if(faceW>0){
-        // High freq = detail, low freq = color/tone
-        // Simulate: pull ke target luminance
+      // Skin smooth di area wajah
+      if(fW>0){
         const lum=r*0.299+g*0.587+b*0.114;
-        const targetLum=Math.min(255,lum*1.04+5);
-        const blend=faceW*0.45;
-        r=Math.round(r+(r*(targetLum/Math.max(1,lum))-r)*blend);
-        g=Math.round(g+(g*(targetLum/Math.max(1,lum))-g)*blend);
-        b=Math.round(b+(b*(targetLum/Math.max(1,lum))-b)*blend);
-        // Even skin tone: reduce extreme variance
-        const avg=(r+g+b)/3;
-        const evenStr=faceW*0.18;
-        r=Math.round(r+(avg-r)*evenStr*0.4);
-        g=Math.round(g+(avg-g)*evenStr*0.3);
+        const tgt=Math.min(255,lum*1.05+6);
+        const s=fW*0.40;
+        if(lum>0){
+          r=Math.min(255,Math.round(r+(r*tgt/lum-r)*s));
+          g=Math.min(255,Math.round(g+(g*tgt/lum-g)*s*0.92));
+          b=Math.min(255,Math.round(b+(b*tgt/lum-b)*s*0.80));
+        }
       }
 
-      // ── Color grading — warm cinematic tone ──
-      // S-curve contrast: midtones lifted, shadows deeper
-      const applyScurve=(v)=>{
+      // S-curve contrast (semua pixel)
+      const curve=(v)=>{
         const t=v/255;
-        // Smooth S-curve
-        const curved=t<0.5
-          ? 2*t*t
-          : 1-Math.pow(-2*t+2,2)/2;
-        return Math.round(curved*255*0.88+v*0.12);
+        return Math.round((t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2)*255*0.85+v*0.15);
       };
-      r=applyScurve(Math.min(255,r));
-      g=applyScurve(Math.min(255,g));
-      b=applyScurve(Math.min(255,b));
+      r=curve(r); g=curve(g); b=curve(b);
 
-      // Warm tone: slight red/yellow lift, cool blue reduce
-      r=Math.min(255,Math.round(r*1.04+3));
-      g=Math.min(255,Math.round(g*1.01+1));
-      b=Math.max(0,Math.round(b*0.96-2));
+      // Warm tone
+      r=Math.min(255,r+4);
+      g=Math.min(255,g+1);
+      b=Math.max(0,b-3);
 
-      // Vibrance: boost saturation selectively (less saturated pixels more)
-      const maxC=Math.max(r,g,b), minC=Math.min(r,g,b);
-      const sat=(maxC-minC)/Math.max(1,maxC);
-      const vibrStr=0.18*(1-sat); // boost low-sat more
-      if(maxC>minC){
-        const avg2=(r+g+b)/3;
-        r=Math.min(255,Math.round(r+(r-avg2)*vibrStr));
-        g=Math.min(255,Math.round(g+(g-avg2)*vibrStr));
-        b=Math.min(255,Math.round(b+(b-avg2)*vibrStr));
+      // Vibrance
+      const mx=Math.max(r,g,b),mn=Math.min(r,g,b);
+      const sat=(mx-mn)/Math.max(1,mx);
+      const vStr=0.15*(1-sat);
+      if(mx>mn){
+        const av=(r+g+b)/3;
+        r=Math.min(255,Math.round(r+(r-av)*vStr));
+        g=Math.min(255,Math.round(g+(g-av)*vStr));
+        b=Math.min(255,Math.round(b+(b-av)*vStr));
       }
-
-      // Clarity: mild local contrast boost
-      const lum2=r*0.299+g*0.587+b*0.114;
-      const clarStr=0.08;
-      const mid=128;
-      r=Math.min(255,Math.max(0,Math.round(r+(r-mid)*clarStr)));
-      g=Math.min(255,Math.max(0,Math.round(g+(g-mid)*clarStr)));
-      b=Math.min(255,Math.max(0,Math.round(b+(b-mid)*clarStr)));
 
       data[i]=Math.min(255,Math.max(0,r));
       data[i+1]=Math.min(255,Math.max(0,g));
@@ -1164,74 +1128,49 @@ function enhanceExportPhoto(srcCanvas, zones){
   }
   oc.putImageData(imgData,0,0);
 
-  // ── Step 3: Eye brightening & whitening ──
-  if(zones && zones.leye && zones.reye){
+  // ── Step 3: Eye brightening ──
+  if(zones&&zones.leye&&zones.reye){
     [zones.leye,zones.reye].forEach(eye=>{
-      const er=W*0.055, str=0.35;
+      const er=W*0.048;
       oc.save();
       oc.globalCompositeOperation='screen';
       const eg=oc.createRadialGradient(eye.x,eye.y,0,eye.x,eye.y,er);
-      eg.addColorStop(0,`rgba(255,255,240,${str})`);
-      eg.addColorStop(0.5,`rgba(255,255,240,${str*0.3})`);
+      eg.addColorStop(0,`rgba(255,255,240,0.30)`);
+      eg.addColorStop(0.5,`rgba(255,255,240,0.10)`);
       eg.addColorStop(1,'rgba(255,255,240,0)');
       oc.fillStyle=eg;
-      oc.beginPath();oc.ellipse(eye.x,eye.y,er*0.9,er*0.5,0,0,Math.PI*2);
+      oc.beginPath();
+      oc.ellipse(eye.x,eye.y,er*0.85,er*0.45,0,0,Math.PI*2);
       oc.fill();
       oc.restore();
     });
   }
 
-  // ── Step 4: Lip saturation boost ──
+  // ── Step 4: Lip saturation ──
   if(zones){
-    const lipC={x:zones.fcx, y:zones.fcy+zones.fry*0.38};
-    const lr=zones.frx*0.18;
+    const lx=zones.fcx, ly=zones.fcy+zones.fry*0.36;
+    const lr=zones.frx*0.16;
     oc.save();
-    oc.globalCompositeOperation='saturation';
-    const lg=oc.createRadialGradient(lipC.x,lipC.y,0,lipC.x,lipC.y,lr);
-    lg.addColorStop(0,'rgba(255,100,100,0.35)');
-    lg.addColorStop(0.6,'rgba(255,100,100,0.15)');
-    lg.addColorStop(1,'rgba(255,100,100,0)');
+    oc.globalCompositeOperation='multiply';
+    const lg=oc.createRadialGradient(lx,ly,0,lx,ly,lr);
+    lg.addColorStop(0,'rgba(200,80,80,0.22)');
+    lg.addColorStop(0.6,'rgba(200,80,80,0.08)');
+    lg.addColorStop(1,'rgba(200,80,80,0)');
     oc.fillStyle=lg;
-    oc.beginPath();oc.ellipse(lipC.x,lipC.y,lr,lr*0.45,0,0,Math.PI*2);
+    oc.beginPath();
+    oc.ellipse(lx,ly,lr,lr*0.42,0,0,Math.PI*2);
     oc.fill();
     oc.restore();
   }
 
-  // ── Step 5: Sharpening (unsharp mask feel) ──
-  // Apply mild sharpen via high-pass composite
-  oc.save();
-  oc.globalCompositeOperation='overlay';
-  const sharpOff=document.createElement('canvas');
-  sharpOff.width=W;sharpOff.height=H;
-  const soc=sharpOff.getContext('2d');
-  soc.filter='blur(1px)';soc.drawImage(out,0,0);soc.filter='none';
-  // Inverted blur composite = sharpen feel
-  // Use luminosity overlay for subtle sharpening
-  oc.restore();
-
-  // ── Step 6: Vignette ──
-  const vg=oc.createRadialGradient(W/2,H/2,Math.min(W,H)*0.35,W/2,H/2,Math.max(W,H)*0.75);
+  // ── Step 5: Vignette ──
+  const vg=oc.createRadialGradient(W/2,H/2,Math.min(W,H)*0.32,W/2,H/2,Math.max(W,H)*0.72);
   vg.addColorStop(0,'rgba(0,0,0,0)');
-  vg.addColorStop(0.6,'rgba(0,0,0,0)');
-  vg.addColorStop(0.85,'rgba(0,0,0,0.18)');
-  vg.addColorStop(1,'rgba(0,0,0,0.50)');
-  oc.save();
-  oc.fillStyle=vg;oc.fillRect(0,0,W,H);
-  oc.restore();
-
-  // ── Step 7: Final clarity pass — subtle glow on highlights ──
-  oc.save();
-  oc.globalCompositeOperation='screen';
-  const glowC=document.createElement('canvas');
-  glowC.width=W;glowC.height=H;
-  const gc2=glowC.getContext('2d');
-  gc2.drawImage(out,0,0);
-  gc2.filter='blur(8px)';
-  gc2.globalCompositeOperation='source-in';
-  oc.globalAlpha=0.06;
-  oc.drawImage(glowC,0,0);
-  oc.globalAlpha=1;
-  oc.restore();
+  vg.addColorStop(0.65,'rgba(0,0,0,0)');
+  vg.addColorStop(0.85,'rgba(0,0,0,0.20)');
+  vg.addColorStop(1,'rgba(0,0,0,0.52)');
+  oc.fillStyle=vg;
+  oc.fillRect(0,0,W,H);
 
   return out;
 }
