@@ -26,7 +26,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);
 /* Video background */
 #landing-video{
   position:absolute;inset:0;width:100%;height:100%;
-  object-fit:cover;z-index:0;opacity:0.70;
+  object-fit:cover;z-index:0;opacity:0.60;
   pointer-events:none;
 }
 /* Gradient overlay di atas video */
@@ -1180,28 +1180,32 @@ document.getElementById('cam-btn').onclick=()=>{
   if(mode!=='realtime')return;
   const W=canvas.width, H=canvas.height;
 
-  // Composite video + efek ke canvas raw
+  // STEP 1: Render video + efek dalam koordinat ASLI (tidak di-flip dulu)
   const raw=document.createElement('canvas');
   raw.width=W; raw.height=H;
   const rc=raw.getContext('2d');
   rc.imageSmoothingEnabled=true;
   rc.imageSmoothingQuality='high';
-
-  // Video: flip horizontal (mirror selfie — CSS scaleX(-1) tidak ikut pixel)
-  rc.save();
-  rc.translate(W,0); rc.scale(-1,1);
+  // Video asli (tidak flip) - koordinat sama dengan landmark
   rc.drawImage(video,0,0,W,H);
-  rc.restore();
-
-  // Canvas efek: TIDAK di-flip — pixel sudah dalam koordinat video asli
-  // CSS scaleX(-1) hanya untuk display, tidak mengubah pixel data
+  // Canvas efek (tidak flip) - koordinat sama dengan video asli
   rc.drawImage(canvas,0,0,W,H);
 
-  // Enhance
-  const enhanced=enhanceExportPhoto(raw,null);
+  // STEP 2: Flip seluruh hasil sekaligus (mirror selfie = natural untuk foto)
+  const flipped=document.createElement('canvas');
+  flipped.width=W; flipped.height=H;
+  const fc=flipped.getContext('2d');
+  fc.imageSmoothingEnabled=true;
+  fc.imageSmoothingQuality='high';
+  fc.save();
+  fc.translate(W,0); fc.scale(-1,1);
+  fc.drawImage(raw,0,0,W,H);
+  fc.restore();
+
+  // STEP 3: Enhance + info bar
+  const enhanced=enhanceExportPhoto(flipped,null);
   const ec=enhanced.getContext('2d');
 
-  // Info bar
   const barH=Math.round(H*0.22);
   const bg=ec.createLinearGradient(0,H-barH,0,H);
   bg.addColorStop(0,'rgba(0,0,0,0)');
