@@ -442,8 +442,13 @@ function fxShadeOverlay(){
 
 // ── Render ─────────────────────────────────────────────────────
 function onResults(res){
-  canvas.width=video.videoWidth||canvas.offsetWidth;
-  canvas.height=video.videoHeight||canvas.offsetHeight;
+  // Selalu pakai resolusi video asli untuk kualitas maksimal
+  const vw = res.image.width || video.videoWidth || 1280;
+  const vh = res.image.height || video.videoHeight || 720;
+  if(canvas.width !== vw || canvas.height !== vh){
+    canvas.width = vw;
+    canvas.height = vh;
+  }
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.drawImage(res.image,0,0,canvas.width,canvas.height);
   if(res.multiFaceLandmarks&&res.multiFaceLandmarks.length>0){
