@@ -442,7 +442,6 @@ function fxShadeOverlay(){
 
 // ── Render ─────────────────────────────────────────────────────
 function onResults(res){
-  // Selalu pakai resolusi video asli untuk kualitas maksimal
   const vw = res.image.width || video.videoWidth || 1280;
   const vh = res.image.height || video.videoHeight || 720;
   if(canvas.width !== vw || canvas.height !== vh){
@@ -450,6 +449,8 @@ function onResults(res){
     canvas.height = vh;
   }
   ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(res.image,0,0,canvas.width,canvas.height);
   if(res.multiFaceLandmarks&&res.multiFaceLandmarks.length>0){
     const raw=res.multiFaceLandmarks[0];
