@@ -363,37 +363,76 @@ function applyFeatheredExclude(c2d,indices,expandX,expandY,feather){
   return offscreen;
 }
 
+
+// Oval feather mask: efek fade halus di tepi wajah
+// Render oval solid di tengah, fade ke transparan di tepi (feather zone)
+function applyOvalFeatherMask(targetCtx){
+  const pts=getOvalPts();
+  // Hitung bounding box oval
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  pts.forEach(p=>{
+    minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);
+    minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y);
+  });
+  const cx=(minX+maxX)/2, cy=(minY+maxY)/2;
+  const rx=(maxX-minX)/2, ry=(maxY-minY)/2;
+  // Feather width: 10% dari radius
+  const featherX=rx*0.12, featherY=ry*0.12;
+
+  // Buat mask canvas
+  const mask=document.createElement('canvas');
+  mask.width=targetCtx.canvas.width;
+  mask.height=targetCtx.canvas.height;
+  const mc=mask.getContext('2d');
+
+  // Gambar oval luar (transparan) ke oval dalam (opak)
+  // Pakai multiple concentric ellipse dengan opacity meningkat
+  const steps=24;
+  for(let i=0;i<steps;i++){
+    const t=i/steps; // 0=tepi luar, 1=tengah
+    const alpha=t*t; // easing: lambat di tepi, cepat ke tengah
+    const scaleX=1-(1-t)*featherX/rx;
+    const scaleY=1-(1-t)*featherY/ry;
+    mc.fillStyle=`rgba(0,0,0,${alpha/steps*2})`;
+    mc.beginPath();
+    mc.ellipse(cx,cy,rx*scaleX,ry*scaleY,0,0,Math.PI*2);
+    mc.fill();
+  }
+  // Isi penuh tengah oval
+  mc.fillStyle='rgba(0,0,0,1)';
+  mc.beginPath();
+  mc.ellipse(cx,cy,rx*(1-featherX/rx*0.5),ry*(1-featherY/ry*0.5),0,0,Math.PI*2);
+  mc.fill();
+
+  // Apply mask sebagai destination-in
+  targetCtx.save();
+  targetCtx.globalCompositeOperation='destination-in';
+  targetCtx.drawImage(mask,0,0);
+  targetCtx.restore();
+}
+
 function fxSmooth(){
   if(!fx.smooth)return;
-  // Render ke offscreen dulu
   const off=document.createElement('canvas');
   off.width=canvas.width;off.height=canvas.height;
   const oc=off.getContext('2d');
   oc.imageSmoothingEnabled=true;oc.imageSmoothingQuality='high';
-  // Clip face oval
-  oc.save();
-  oc.beginPath();buildSmoothPath(oc,getOvalPts());
-  oc.clip();
+  // Gambar efek ke seluruh canvas dulu (tanpa clip)
   let r=255,g=218,b=180;
   if(selectedHex){const c=hex2rgb(selectedHex);r=c.r;g=c.g;b=c.b;}
-  // 6 layer ultra tipis = smooth natural
-  for(let i=0;i<6;i++){oc.fillStyle=`rgba(${r},${g},${b},${intensity*0.045})`;oc.fill();}
-  oc.restore();
-
-  // Erase area mata kiri dengan feathered mask
+  for(let i=0;i<6;i++){
+    oc.fillStyle=`rgba(${r},${g},${b},${intensity*0.045})`;
+    oc.fillRect(0,0,off.width,off.height);
+  }
+  // Apply oval feather mask (destination-in)
+  applyOvalFeatherMask(oc);
+  // Erase mata/alis dengan feather
   [Z.LE,Z.RE,Z.LB,Z.RB].forEach((zone,i)=>{
     const expand=[14,14,16,16][i];
     const eyeMask=applyFeatheredExclude(oc,zone,expand,expand*0.7,8);
-    oc.save();
-    oc.globalCompositeOperation='destination-out';
-    oc.drawImage(eyeMask,0,0);
-    oc.restore();
+    oc.save();oc.globalCompositeOperation='destination-out';oc.drawImage(eyeMask,0,0);oc.restore();
   });
-
-  // Composite ke canvas utama
-  ctx.save();
-  ctx.drawImage(off,0,0);
-  ctx.restore();
+  ctx.save();ctx.drawImage(off,0,0);ctx.restore();
 }
 
 function fxBright(){
@@ -402,17 +441,15 @@ function fxBright(){
   const off=document.createElement('canvas');
   off.width=canvas.width;off.height=canvas.height;
   const oc=off.getContext('2d');
-  oc.save();
-  oc.beginPath();buildSmoothPath(oc,getOvalPts());
-  oc.clip();
   const g=oc.createRadialGradient(n.x,n.y,0,n.x,n.y,rad);
   g.addColorStop(0,`rgba(255,250,235,${a})`);
   g.addColorStop(.5,`rgba(255,248,220,${a*.5})`);
   g.addColorStop(1,'rgba(255,248,220,0)');
   oc.fillStyle=g;oc.beginPath();oc.arc(n.x,n.y,rad,0,Math.PI*2);oc.fill();
-  oc.restore();
+  // Apply oval feather mask
+  applyOvalFeatherMask(oc);
   // Erase mata
-  [Z.LE,Z.RE].forEach((zone,i)=>{
+  [Z.LE,Z.RE].forEach((zone)=>{
     const eyeMask=applyFeatheredExclude(oc,zone,12,9,10);
     oc.save();oc.globalCompositeOperation='destination-out';oc.drawImage(eyeMask,0,0);oc.restore();
   });
@@ -423,32 +460,40 @@ function fxBlush(idx){
   if(!fx.blush)return;
   const c=cen(idx),rx=canvas.width*0.1,ry=canvas.height*0.08,a=intensity*0.5;
   const t=blushHue/100,r=Math.round(220+t*12),g=Math.round(100+t*49),b=Math.round(136-t*66);
-  ctx.save();ctx.globalCompositeOperation='multiply';
-  ctx.translate(c.x,c.y);ctx.scale(1,ry/rx);
-  const gr=ctx.createRadialGradient(0,0,0,0,0,rx);
+  const off=document.createElement('canvas');
+  off.width=canvas.width;off.height=canvas.height;
+  const oc=off.getContext('2d');
+  oc.save();oc.translate(c.x,c.y);oc.scale(1,ry/rx);
+  const gr=oc.createRadialGradient(0,0,0,0,0,rx);
   gr.addColorStop(0,`rgba(${r},${g},${b},${a})`);
-  gr.addColorStop(.6,`rgba(${r},${g},${b},${a*0.3})`);
+  gr.addColorStop(.65,`rgba(${r},${g},${b},${a*0.25})`);
   gr.addColorStop(1,`rgba(${r},${g},${b},0)`);
-  ctx.fillStyle=gr;ctx.beginPath();ctx.arc(0,0,rx,0,Math.PI*2);ctx.fill();
-  ctx.restore();
+  oc.fillStyle=gr;oc.beginPath();oc.arc(0,0,rx*1.2,0,Math.PI*2);oc.fill();
+  oc.restore();
+  // Apply oval feather mask agar blush tidak bocor ke luar wajah
+  applyOvalFeatherMask(oc);
+  ctx.save();ctx.globalCompositeOperation='multiply';ctx.drawImage(off,0,0);ctx.restore();
 }
 
 function fxHighlight(){
   if(!fx.highlight)return;
   const t4=lm(4),t6=lm(6),a=intensity*0.42;
-  ctx.save();ctx.globalCompositeOperation='screen';
+  const off=document.createElement('canvas');
+  off.width=canvas.width;off.height=canvas.height;
+  const oc=off.getContext('2d');
   const bw=canvas.width*0.022,bh=Math.abs(t4.y-t6.y)+12;
-  const ng=ctx.createLinearGradient(t6.x-bw,0,t6.x+bw,0);
+  const ng=oc.createLinearGradient(t6.x-bw,0,t6.x+bw,0);
   ng.addColorStop(0,'rgba(255,255,255,0)');
   ng.addColorStop(.5,`rgba(255,253,245,${a*0.75})`);
   ng.addColorStop(1,'rgba(255,255,255,0)');
-  ctx.fillStyle=ng;ctx.fillRect(t6.x-bw,t6.y-2,bw*2,bh);
+  oc.fillStyle=ng;oc.fillRect(t6.x-bw,t6.y-2,bw*2,bh);
   const fh=cen(Z.FH);
-  const fg=ctx.createRadialGradient(fh.x,fh.y,0,fh.x,fh.y,canvas.width*0.12);
+  const fg=oc.createRadialGradient(fh.x,fh.y,0,fh.x,fh.y,canvas.width*0.12);
   fg.addColorStop(0,`rgba(255,253,240,${a*0.3})`);
   fg.addColorStop(1,'rgba(255,253,240,0)');
-  ctx.fillStyle=fg;ctx.beginPath();ctx.arc(fh.x,fh.y,canvas.width*0.12,0,Math.PI*2);ctx.fill();
-  ctx.restore();
+  oc.fillStyle=fg;oc.beginPath();oc.arc(fh.x,fh.y,canvas.width*0.12,0,Math.PI*2);oc.fill();
+  applyOvalFeatherMask(oc);
+  ctx.save();ctx.globalCompositeOperation='screen';ctx.drawImage(off,0,0);ctx.restore();
 }
 
 function fxUnderEye(idx){
@@ -469,11 +514,11 @@ function fxShadeOverlay(){
   const off=document.createElement('canvas');
   off.width=canvas.width;off.height=canvas.height;
   const oc=off.getContext('2d');
-  oc.save();oc.beginPath();buildSmoothPath(oc,getOvalPts());
-  oc.clip();
-  oc.fillStyle=`rgba(${r},${g},${b},${a})`;oc.fill();
-  oc.restore();
-  // Erase mata dari shade overlay juga
+  oc.fillStyle=`rgba(${r},${g},${b},${a})`;
+  oc.fillRect(0,0,off.width,off.height);
+  // Apply oval feather mask
+  applyOvalFeatherMask(oc);
+  // Erase mata
   [Z.LE,Z.RE,Z.LB,Z.RB].forEach((zone,i)=>{
     const expand=[14,14,16,16][i];
     const eyeMask=applyFeatheredExclude(oc,zone,expand,expand*0.7,8);
