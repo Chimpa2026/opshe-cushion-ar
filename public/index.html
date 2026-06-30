@@ -372,7 +372,7 @@ input[type=range]::-webkit-slider-thumb{
     </div>
 
     <!-- Hidden file input -->
-    <input type="file" id="photo-upload-input" accept="image/*" capture="user">
+    <input type="file" id="photo-upload-input" accept="image/*">
   </div>
 
   <!-- ── PANEL ── -->
@@ -533,41 +533,19 @@ function applyAllEffects(){
   const pts=getOvalPts();
   const eff=intensity;
 
-  // Split point = nose bridge center (landmark 168)
+  // Split: nose bridge center landmark
   const nosePt=lm(168);
   const splitX=nosePt.x;
+  // Di layar (CSS flip): splitX landmark = W-splitX di layar
+  // Sisi AFTER di layar = kanan layar = KIRI landmark = x < splitX
 
-  // Clip ke oval + sisi kanan (after side)
-  function clipAfter(){
-    c2d.beginPath();
-    buildSmoothPath(c2d,pts);
-    c2d.rect(splitX,0,W-splitX,H);
-    c2d.clip('evenodd');
-    // Balik: clip oval saja tapi hanya dari splitX ke kanan
-    c2d.beginPath();
-    buildSmoothPath(c2d,pts);
-    c2d.clip();
-    c2d.beginPath();
-    c2d.rect(splitX,0,W,H);
-    c2d.clip();
-  }
-
-  function clipOvalRight(){
-    c2d.beginPath();
-    buildSmoothPath(c2d,pts);
-    c2d.clip();
-    c2d.beginPath();
-    c2d.rect(splitX,0,W-splitX,H);
-    c2d.clip();
-  }
-
-  // ── Smooth ──
+  // ── Smooth (kiri landmark = kanan layar = AFTER) ──
   if(fx.smooth){
     let r=255,g=225,b=200;
     if(selectedHex){const c=hex2rgb(selectedHex);r=c.r;g=c.g;b=c.b;}
     c2d.save();
     c2d.beginPath();buildSmoothPath(c2d,pts);c2d.clip();
-    c2d.beginPath();c2d.rect(splitX,0,W-splitX,H);c2d.clip();
+    c2d.beginPath();c2d.rect(0,0,splitX,H);c2d.clip(); // kiri landmark = kanan layar
     for(let i=0;i<4;i++){
       c2d.fillStyle=`rgba(${r},${g},${b},${eff*0.025})`;
       c2d.fillRect(0,0,W,H);
@@ -587,7 +565,7 @@ function applyAllEffects(){
     const n=cen(Z.NOSE),rad=W*0.44,a=eff*0.26;
     c2d.save();
     c2d.beginPath();buildSmoothPath(c2d,pts);c2d.clip();
-    c2d.beginPath();c2d.rect(splitX,0,W-splitX,H);c2d.clip();
+    c2d.beginPath();c2d.rect(0,0,splitX,H);c2d.clip();
     c2d.globalCompositeOperation='screen';
     const g=c2d.createRadialGradient(n.x,n.y,0,n.x,n.y,rad);
     g.addColorStop(0,`rgba(255,252,240,${a})`);
@@ -597,14 +575,14 @@ function applyAllEffects(){
     c2d.restore();
   }
 
-  // ── Blush (kanan saja) ──
+  // ── Blush kiri landmark (kanan layar = AFTER) ──
   if(fx.blush){
     const t=blushHue/100;
     const r=Math.round(235+t*8),g=Math.round(110+t*55),b=Math.round(120-t*50);
-    const c=cen(Z.RC),bx=W*0.11,by=H*0.09,a=eff*0.52;
+    const c=cen(Z.LC),bx=W*0.11,by=H*0.09,a=eff*0.52;
     c2d.save();
     c2d.beginPath();buildSmoothPath(c2d,pts);c2d.clip();
-    c2d.beginPath();c2d.rect(splitX,0,W-splitX,H);c2d.clip();
+    c2d.beginPath();c2d.rect(0,0,splitX,H);c2d.clip();
     c2d.globalCompositeOperation='multiply';
     c2d.translate(c.x,c.y);c2d.scale(1,by/bx);
     const gr=c2d.createRadialGradient(0,0,0,0,0,bx);
@@ -615,11 +593,11 @@ function applyAllEffects(){
     c2d.restore();
   }
 
-  // ── Highlight (kanan saja) ──
+  // ── Highlight ──
   if(fx.highlight){
     const t4=lm(4),t6=lm(6),fh=cen(Z.FH),a=eff*0.45;
     c2d.save();
-    c2d.beginPath();c2d.rect(splitX,0,W-splitX,H);c2d.clip();
+    c2d.beginPath();c2d.rect(0,0,splitX,H);c2d.clip();
     c2d.globalCompositeOperation='screen';
     const bw=W*0.018,bh=Math.abs(t4.y-t6.y)+16;
     const ng=c2d.createLinearGradient(t6.x-bw,0,t6.x+bw,0);
@@ -634,70 +612,91 @@ function applyAllEffects(){
     c2d.restore();
   }
 
-  // ── Under eye (kanan saja) ──
+  // ── Under eye kiri landmark ──
   if(fx.undereye){
-    const reye=cen(Z.RE),r=W*0.046,a=eff*0.32;
+    const leye=cen(Z.LE),r=W*0.046,a=eff*0.32;
     c2d.save();
-    c2d.beginPath();c2d.rect(splitX,0,W-splitX,H);c2d.clip();
+    c2d.beginPath();c2d.rect(0,0,splitX,H);c2d.clip();
     c2d.globalCompositeOperation='screen';
-    const g=c2d.createRadialGradient(reye.x,reye.y+r*0.5,0,reye.x,reye.y+r*0.5,r*0.8);
+    const g=c2d.createRadialGradient(leye.x,leye.y+r*0.5,0,leye.x,leye.y+r*0.5,r*0.8);
     g.addColorStop(0,`rgba(255,250,235,${a})`);
     g.addColorStop(0.6,`rgba(255,246,225,${a*0.4})`);
     g.addColorStop(1,'rgba(255,246,225,0)');
     c2d.fillStyle=g;c2d.beginPath();
-    c2d.ellipse(reye.x,reye.y+r*0.5,r*0.7,r*0.38,0,0,Math.PI*2);
+    c2d.ellipse(leye.x,leye.y+r*0.5,r*0.7,r*0.38,0,0,Math.PI*2);
     c2d.fill();c2d.restore();
   }
 
-  // ── Shade overlay (kanan saja) ──
+  // ── Shade overlay ──
   if(selectedHex&&shadeMix>=0.05){
     const{r,g,b}=hex2rgb(selectedHex),a=eff*shadeMix*0.24;
     c2d.save();
     c2d.beginPath();buildSmoothPath(c2d,pts);c2d.clip();
-    c2d.beginPath();c2d.rect(splitX,0,W-splitX,H);c2d.clip();
+    c2d.beginPath();c2d.rect(0,0,splitX,H);c2d.clip();
     c2d.globalCompositeOperation='multiply';
     c2d.fillStyle=`rgba(${r},${g},${b},${a})`;
     c2d.fillRect(0,0,W,H);
     c2d.restore();
   }
 
-  // ── Feather tepi oval ──
+  // ── Feather ──
   drawFeatherEdge(pts);
 
-  // ── Split line & label ──
-  // Gambar di guide-canvas agar tidak ikut export
+  // ── Guide canvas ──
   gctx.clearRect(0,0,guideCanvas.width,guideCanvas.height);
 
-  // Face oval guide
-  const pts2=getOvalPts();
+  // Oval guide
   gctx.save();
-  gctx.beginPath();buildSmoothPath(gctx,pts2);
+  gctx.beginPath();buildSmoothPath(gctx,getOvalPts());
   gctx.strokeStyle=faceOn?'rgba(240,40,122,0.5)':'rgba(255,255,255,0.1)';
-  gctx.lineWidth=Math.max(1.5,canvas.width*0.002);
+  gctx.lineWidth=Math.max(1.5,W*0.002);
   gctx.stroke();
+  gctx.restore();
 
-  // Split line vertikal
+  // Split line
   const topPt=lm(10), botPt=lm(152);
+  gctx.save();
   gctx.strokeStyle='rgba(255,255,255,0.80)';
   gctx.lineWidth=Math.max(1.5,W*0.002);
   gctx.setLineDash([Math.round(W*0.01),Math.round(W*0.007)]);
   gctx.beginPath();
-  gctx.moveTo(splitX, topPt.y);
-  gctx.lineTo(splitX, botPt.y);
+  gctx.moveTo(splitX,topPt.y);
+  gctx.lineTo(splitX,botPt.y);
   gctx.stroke();
   gctx.setLineDash([]);
+  gctx.restore();
 
-  // Label BEFORE / AFTER
+  // Labels - gctx di-flip CSS scaleX(-1)
+  // "BEFORE" harus tampil di KIRI layar = koordinat KANAN landmark = x > splitX
+  // "AFTER"  harus tampil di KANAN layar = koordinat KIRI landmark = x < splitX
+  // Untuk text terbaca benar di layar yang ter-flip:
+  // Counter-flip per text: translate ke posX, scale(-1,1), fillText di 0
+
   const fontSize=Math.round(W*0.030);
+  const labelY=topPt.y - Math.round(H*0.018);
+
+  // BEFORE: kiri layar = kanan landmark (splitX + offset)
+  const beforeLandmarkX = splitX + W*0.13;
+  gctx.save();
+  gctx.translate(beforeLandmarkX, 0);
+  gctx.scale(-1, 1);
   gctx.font=`bold ${fontSize}px -apple-system,sans-serif`;
   gctx.textAlign='center';
-  gctx.shadowColor='rgba(0,0,0,0.8)';
-  gctx.shadowBlur=8;
-  const labelY=topPt.y - fontSize*0.5;
-  gctx.fillStyle='rgba(255,255,255,0.85)';
-  gctx.fillText('BEFORE', splitX - W*0.12, labelY);
+  gctx.fillStyle='rgba(255,255,255,0.88)';
+  gctx.shadowColor='rgba(0,0,0,0.9)'; gctx.shadowBlur=10;
+  gctx.fillText('BEFORE', 0, labelY);
+  gctx.restore();
+
+  // AFTER: kanan layar = kiri landmark (splitX - offset)
+  const afterLandmarkX = splitX - W*0.13;
+  gctx.save();
+  gctx.translate(afterLandmarkX, 0);
+  gctx.scale(-1, 1);
+  gctx.font=`bold ${fontSize}px -apple-system,sans-serif`;
+  gctx.textAlign='center';
   gctx.fillStyle='rgba(249,168,212,1)';
-  gctx.fillText('AFTER', splitX + W*0.12, labelY);
+  gctx.shadowColor='rgba(0,0,0,0.9)'; gctx.shadowBlur=10;
+  gctx.fillText('AFTER', 0, labelY);
   gctx.restore();
 }
 
@@ -1048,7 +1047,7 @@ document.getElementById('btn-photo').onclick=()=>startPhotoMode();
 document.getElementById('back-btn').onclick=()=>showLanding();
 
 // File upload
-function triggerUpload(){ fileInput.click(); }
+function triggerUpload(){ fileInput.removeAttribute("capture"); fileInput.click(); }
 fileInput.onchange=e=>{ if(e.target.files[0]) loadPhoto(e.target.files[0]); fileInput.value=''; };
 document.getElementById('ph-upload-btn').onclick=triggerUpload;
 document.getElementById('photo-change-btn').onclick=triggerUpload;
@@ -1126,27 +1125,27 @@ function enhanceExportPhoto(srcCanvas, zones){
   oc.imageSmoothingQuality='high';
   oc.drawImage(srcCanvas,0,0,W,H);
 
-  // ── BG Blur (hanya kalau ada zones/landmark) ──
+  // ── BG Blur ──
   if(zones){
-    const {fcx,fcy,frx,fry}=zones;
+    const{fcx,fcy,frx,fry}=zones;
     const bg=document.createElement('canvas');
-    bg.width=W; bg.height=H;
+    bg.width=W;bg.height=H;
     const bc=bg.getContext('2d');
-    bc.filter='blur(8px)';
+    bc.filter='blur(6px)';
     bc.drawImage(srcCanvas,0,0,W,H);
     bc.filter='none';
     const tmp2=document.createElement('canvas');
-    tmp2.width=W; tmp2.height=H;
+    tmp2.width=W;tmp2.height=H;
     const tc=tmp2.getContext('2d');
     tc.drawImage(bg,0,0);
     tc.save();
     tc.globalCompositeOperation='destination-out';
-    const mg=tc.createRadialGradient(fcx,fcy,frx*0.45,fcx,fcy,Math.max(frx,fry)*1.4);
+    const mg=tc.createRadialGradient(fcx,fcy,frx*0.5,fcx,fcy,Math.max(frx,fry)*1.4);
     mg.addColorStop(0,'rgba(0,0,0,1)');
-    mg.addColorStop(0.55,'rgba(0,0,0,0.9)');
-    mg.addColorStop(0.80,'rgba(0,0,0,0.4)');
+    mg.addColorStop(0.6,'rgba(0,0,0,0.8)');
+    mg.addColorStop(0.85,'rgba(0,0,0,0.3)');
     mg.addColorStop(1,'rgba(0,0,0,0)');
-    tc.fillStyle=mg; tc.fillRect(0,0,W,H);
+    tc.fillStyle=mg;tc.fillRect(0,0,W,H);
     tc.restore();
     oc.clearRect(0,0,W,H);
     oc.drawImage(srcCanvas,0,0,W,H);
@@ -1157,9 +1156,9 @@ function enhanceExportPhoto(srcCanvas, zones){
     oc.globalCompositeOperation='source-over';
   }
 
-  // ── Pixel enhancement ──
+  // ── Pixel: subtle, tidak overcooked ──
   let imgData;
-  try{ imgData=oc.getImageData(0,0,W,H); } catch(e){ return out; }
+  try{imgData=oc.getImageData(0,0,W,H);}catch(e){return out;}
   const data=imgData.data;
 
   for(let y=0;y<H;y++){
@@ -1167,54 +1166,48 @@ function enhanceExportPhoto(srcCanvas, zones){
       const i=(y*W+x)*4;
       let r=data[i],g=data[i+1],b=data[i+2];
 
-      // Face mask weight
+      // Face weight
       let fW=0;
       if(zones){
-        const dx=(x-zones.fcx)/zones.frx, dy=(y-zones.fcy)/zones.fry;
+        const dx=(x-zones.fcx)/zones.frx,dy=(y-zones.fcy)/zones.fry;
         const d=Math.sqrt(dx*dx+dy*dy);
         fW=d<0.65?1:d<1.0?Math.max(0,(1-d)/0.35):0;
       }
 
-      // Skin smooth
+      // Skin smooth — sangat subtle
       if(fW>0){
         const lum=r*0.299+g*0.587+b*0.114;
-        const tgt=Math.min(255,lum*1.06+8);
-        const s=fW*0.45;
+        const tgt=Math.min(255,lum*1.03+4); // hanya +3% luminance
+        const s=fW*0.30; // lebih rendah dari sebelumnya
         if(lum>0){
           r=Math.min(255,Math.round(r+(r*tgt/lum-r)*s));
-          g=Math.min(255,Math.round(g+(g*tgt/lum-g)*s*0.92));
-          b=Math.min(255,Math.round(b+(b*tgt/lum-b)*s*0.78));
+          g=Math.min(255,Math.round(g+(g*tgt/lum-g)*s*0.95));
+          b=Math.min(255,Math.round(b+(b*tgt/lum-b)*s*0.85));
         }
       }
 
-      // S-curve contrast — lebih kuat
+      // Contrast subtle — S-curve ringan
       const curve=(v)=>{
         const t=v/255;
-        return Math.round((t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2)*255*0.82+v*0.18);
+        // Ringan: hanya 8% curve, 92% original
+        return Math.round((t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2)*255*0.08+v*0.92);
       };
-      r=curve(r); g=curve(g); b=curve(b);
+      r=curve(r);g=curve(g);b=curve(b);
 
-      // Warm cinematic tone
-      r=Math.min(255,r+5);
-      g=Math.min(255,g+1);
-      b=Math.max(0,b-4);
+      // Warm tone sangat subtle
+      r=Math.min(255,r+2);
+      b=Math.max(0,b-1);
 
-      // Vibrance boost
+      // Vibrance ringan
       const mx=Math.max(r,g,b),mn=Math.min(r,g,b);
       const sat=(mx-mn)/Math.max(1,mx);
-      const vStr=0.22*(1-sat);
-      if(mx>mn){
+      if(sat<0.3&&mx>mn){ // hanya boost yang sudah desaturated
         const av=(r+g+b)/3;
+        const vStr=0.08*(0.3-sat);
         r=Math.min(255,Math.round(r+(r-av)*vStr));
         g=Math.min(255,Math.round(g+(g-av)*vStr));
         b=Math.min(255,Math.round(b+(b-av)*vStr));
       }
-
-      // Clarity
-      const mid=128;
-      r=Math.min(255,Math.max(0,Math.round(r+(r-mid)*0.10)));
-      g=Math.min(255,Math.max(0,Math.round(g+(g-mid)*0.10)));
-      b=Math.min(255,Math.max(0,Math.round(b+(b-mid)*0.10)));
 
       data[i]=Math.min(255,Math.max(0,r));
       data[i+1]=Math.min(255,Math.max(0,g));
@@ -1223,15 +1216,15 @@ function enhanceExportPhoto(srcCanvas, zones){
   }
   oc.putImageData(imgData,0,0);
 
-  // ── Eye brightening ──
+  // ── Eye brightening subtle ──
   if(zones&&zones.leye&&zones.reye){
     [zones.leye,zones.reye].forEach(eye=>{
-      const er=W*0.050;
+      const er=W*0.045;
       oc.save();
       oc.globalCompositeOperation='screen';
       const eg=oc.createRadialGradient(eye.x,eye.y,0,eye.x,eye.y,er);
-      eg.addColorStop(0,'rgba(255,255,240,0.32)');
-      eg.addColorStop(0.5,'rgba(255,255,240,0.12)');
+      eg.addColorStop(0,'rgba(255,255,240,0.18)');
+      eg.addColorStop(0.5,'rgba(255,255,240,0.06)');
       eg.addColorStop(1,'rgba(255,255,240,0)');
       oc.fillStyle=eg;
       oc.beginPath();oc.ellipse(eye.x,eye.y,er*0.88,er*0.48,0,0,Math.PI*2);oc.fill();
@@ -1239,28 +1232,13 @@ function enhanceExportPhoto(srcCanvas, zones){
     });
   }
 
-  // ── Lip saturation ──
-  if(zones){
-    const lx=zones.fcx, ly=zones.fcy+zones.fry*0.36;
-    const lr=zones.frx*0.18;
-    oc.save();
-    oc.globalCompositeOperation='multiply';
-    const lg=oc.createRadialGradient(lx,ly,0,lx,ly,lr);
-    lg.addColorStop(0,'rgba(190,70,70,0.25)');
-    lg.addColorStop(0.6,'rgba(190,70,70,0.08)');
-    lg.addColorStop(1,'rgba(190,70,70,0)');
-    oc.fillStyle=lg;
-    oc.beginPath();oc.ellipse(lx,ly,lr,lr*0.40,0,0,Math.PI*2);oc.fill();
-    oc.restore();
-  }
-
-  // ── Vignette kuat ──
-  const vg=oc.createRadialGradient(W/2,H/2,Math.min(W,H)*0.30,W/2,H/2,Math.max(W,H)*0.70);
+  // ── Vignette ringan ──
+  const vg=oc.createRadialGradient(W/2,H/2,Math.min(W,H)*0.35,W/2,H/2,Math.max(W,H)*0.75);
   vg.addColorStop(0,'rgba(0,0,0,0)');
-  vg.addColorStop(0.60,'rgba(0,0,0,0)');
-  vg.addColorStop(0.82,'rgba(0,0,0,0.22)');
-  vg.addColorStop(1,'rgba(0,0,0,0.55)');
-  oc.fillStyle=vg; oc.fillRect(0,0,W,H);
+  vg.addColorStop(0.65,'rgba(0,0,0,0)');
+  vg.addColorStop(0.85,'rgba(0,0,0,0.12)');
+  vg.addColorStop(1,'rgba(0,0,0,0.35)');
+  oc.fillStyle=vg;oc.fillRect(0,0,W,H);
 
   return out;
 }
