@@ -674,20 +674,21 @@ function applyAllEffects(){
     c2d.beginPath();c2d.rect(0,0,splitX,H);c2d.clip();
   }
 
-  // ── 1. FOUNDATION/SHADE (efek paling penting - harus kuat) ──
-  // Ini yang bikin cushion terlihat nyata: menutupi dan menyamakan warna kulit
+  // ── 1. FOUNDATION/SHADE — dramatic cushion coverage ──
   if(selectedHex&&shadeMix>=0.01){
     const{r,g,b}=hex2rgb(selectedHex);
     c2d.save(); clipAfter(c2d);
-    // Layer 1: Multiply untuk blend warna
+    // Layer 1: Multiply — natural color blend
     c2d.globalCompositeOperation='multiply';
-    const baseA = eff*shadeMix*0.55; // lebih kuat
-    c2d.fillStyle=`rgba(${r},${g},${b},${baseA})`;
+    c2d.fillStyle=`rgba(${r},${g},${b},${Math.min(0.75, eff*shadeMix*0.80)})`;
     c2d.fillRect(0,0,W,H);
-    // Layer 2: Source-over untuk coverage/opacity
+    // Layer 2: Source-over — opaque coverage (foundation cover)
     c2d.globalCompositeOperation='source-over';
-    const coverA = eff*shadeMix*0.28; // coverage layer
-    c2d.fillStyle=`rgba(${r},${g},${b},${coverA})`;
+    c2d.fillStyle=`rgba(${r},${g},${b},${Math.min(0.55, eff*shadeMix*0.55)})`;
+    c2d.fillRect(0,0,W,H);
+    // Layer 3: Screen — luminosity/glow agar tidak flat
+    c2d.globalCompositeOperation='screen';
+    c2d.fillStyle=`rgba(${Math.min(255,r+30)},${Math.min(255,g+20)},${Math.min(255,b+10)},${eff*shadeMix*0.12})`;
     c2d.fillRect(0,0,W,H);
     c2d.restore();
   }
@@ -707,8 +708,8 @@ function applyAllEffects(){
     c2d.fillStyle=glow;c2d.fillRect(0,0,W,H);
     // Skin tone overlay
     c2d.globalCompositeOperation='source-over';
-    for(let i=0;i<5;i++){
-      c2d.fillStyle=`rgba(${r},${g},${b},${eff*0.040})`;
+    for(let i=0;i<6;i++){
+      c2d.fillStyle=`rgba(${r},${g},${b},${eff*0.055})`;
       c2d.fillRect(0,0,W,H);
     }
     c2d.restore();
@@ -930,24 +931,27 @@ function applyPixelFilter(srcData, z, opts){
       const eyeM=Math.max(lEM,rEM);
       const skinM=fMask*(1-eyeM*0.88);
 
-      // ── 1. FOUNDATION — ini yang paling penting ──
-      // Simulasi cushion: blend warna shade ke kulit + coverage
+      // ── 1. FOUNDATION — dramatic cushion look ──
       if(shC&&shadeMix>=0.01&&skinM>0){
-        const coverage=intensity*shadeMix*0.70*skinM; // jauh lebih kuat
-        // Multiply blend dulu (natural color mix)
+        const cvg=intensity*shadeMix*skinM;
+        // Step 1: Multiply blend (natural color interaction)
         const mr=clamp(r*shC.r/255);
         const mg2=clamp(g*shC.g/255);
         const mb=clamp(b*shC.b/255);
-        // Blend multiply dengan original
-        const multStr=Math.min(coverage*0.55,0.55);
+        const multStr=Math.min(cvg*0.70, 0.70);
         r=clamp(r+(mr-r)*multStr);
         g=clamp(g+(mg2-g)*multStr);
         b=clamp(b+(mb-b)*multStr);
-        // Tambah coverage layer (source-over feel)
-        const coverStr=Math.min(coverage*0.40,0.40);
+        // Step 2: Direct coverage (opaque foundation layer)
+        const coverStr=Math.min(cvg*0.58, 0.58);
         r=clamp(r+(shC.r-r)*coverStr);
         g=clamp(g+(shC.g-g)*coverStr);
         b=clamp(b+(shC.b-b)*coverStr);
+        // Step 3: Luminosity lift (agar tidak flat/dead)
+        const liftStr=Math.min(cvg*0.12, 0.12);
+        r=clamp(r+(Math.min(255,shC.r+30)-r)*liftStr);
+        g=clamp(g+(Math.min(255,shC.g+20)-g)*liftStr);
+        b=clamp(b+(Math.min(255,shC.b+10)-b)*liftStr);
       }
 
       // ── 2. SKIN SMOOTH ──
