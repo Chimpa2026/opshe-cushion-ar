@@ -709,9 +709,12 @@ function applyPixelFilter(srcData, z, opts){
   const {intensity,blushHue,shadeMix,selectedHex,fx}=opts;
   const data=new Uint8ClampedArray(srcData.data);
 
-  const shC = selectedHex ? hexToRgb(selectedHex) : null;
+  const shC=selectedHex?hexToRgb(selectedHex):null;
   const bT=blushHue/100;
-  const blR=Math.round(235+bT*8), blG=Math.round(110+bT*55), blB=Math.round(120-bT*50);
+  const blR=Math.round(235+bT*8),blG=Math.round(110+bT*55),blB=Math.round(120-bT*50);
+
+  // Split point = nose bridge X (before/after divider)
+  const splitX = noseBridge.x;
 
   for(let y=0;y<H;y++){
     for(let x=0;x<W;x++){
@@ -722,22 +725,23 @@ function applyPixelFilter(srcData, z, opts){
       const fMask=ellipseDist(x,y,fcx,fcy,frx,fry,0.20);
       if(fMask<=0) continue;
 
-      // Eye mask (exclude dari skin effects)
+      // BEFORE side (kiri dari split) = skip semua efek
+      if(x < splitX) continue;
+
+      // Eye mask
       const lEM=ellipseDist(x,y,leyeC.x,leyeC.y,frx*0.18,fry*0.12,0.6);
       const rEM=ellipseDist(x,y,reyeC.x,reyeC.y,frx*0.18,fry*0.12,0.6);
       const eyeM=Math.max(lEM,rEM);
       const skinM=fMask*(1-eyeM*0.90);
 
-      // 1. SKIN SMOOTH — blur ke tone target
+      // 1. Skin smooth
       if(fx.smooth && skinM>0){
         const str=intensity*0.50*skinM;
         if(shC){
-          // Blend ke shade color
           r=clamp(r+(shC.r-r)*str*0.55);
           g=clamp(g+(shC.g-g)*str*0.50);
           b=clamp(b+(shC.b-b)*str*0.45);
-        } else {
-          // Auto: brighten & even skin tone
+        }else{
           const lum=r*0.299+g*0.587+b*0.114;
           const tgt=Math.min(255,lum*1.06+8);
           r=clamp(r+(tgt-r)*str*0.55);
@@ -746,7 +750,7 @@ function applyPixelFilter(srcData, z, opts){
         }
       }
 
-      // 2. BRIGHTENING — center-weighted luminosity
+      // 2. Brightening
       if(fx.bright && fMask>0){
         const dx=(x-fcx)/frx,dy=(y-fcy)/fry;
         const cd=Math.sqrt(dx*dx+dy*dy);
@@ -757,31 +761,26 @@ function applyPixelFilter(srcData, z, opts){
         b=clamp(b+(255-b)*str*0.22);
       }
 
-      // 3. BLUSH — multiply warna blush ke pipi
+      // 3. Blush - hanya sisi kanan
       if(fx.blush){
-        const lBM=ellipseDist(x,y,lcen.x,lcen.y,frx*0.30,fry*0.22,0.40)*fMask;
+        // Hanya rcen (pipi kanan di foto = sisi after)
         const rBM=ellipseDist(x,y,rcen.x,rcen.y,frx*0.30,fry*0.22,0.40)*fMask;
-        const bM=Math.max(lBM,rBM);
-        if(bM>0){
-          const str=intensity*0.50*bM;
-          // Multiply blend
+        if(rBM>0){
+          const str=intensity*0.50*rBM;
           r=clamp(r*(1-str*0.6)+(r*blR/255)*str*0.6);
           g=clamp(g*(1-str*0.6)+(g*blG/255)*str*0.6);
           b=clamp(b*(1-str*0.6)+(b*blB/255)*str*0.6);
-          // Slight warmth lift
           r=clamp(r+blR*str*0.08);
           g=clamp(g+blG*str*0.04);
         }
       }
 
-      // 4. HIGHLIGHT — nose bridge & dahi
+      // 4. Highlight
       if(fx.highlight){
-        // Nose bridge: strip sempit vertikal
         const nBx=Math.abs(x-noseBridge.x)/(frx*0.10);
-        const nBy=(y-noseBridge.y)/(fry*0.38);
+        const nBy=(y-noseBridge.y)/(fry*0.35);
         const nM=fMask*Math.max(0,1-Math.sqrt(nBx*nBx+Math.max(0,nBy)*Math.max(0,nBy)));
-        // Dahi
-        const fhM=ellipseDist(x,y,fh.x,fh.y,frx*0.50,fry*0.20,0.5)*fMask;
+        const fhM=ellipseDist(x,y,fh.x,fh.y,frx*0.50,fry*0.22,0.5)*fMask;
         const hlM=Math.max(nM*0.85,fhM*0.55);
         if(hlM>0){
           const str=intensity*0.38*hlM;
@@ -791,20 +790,18 @@ function applyPixelFilter(srcData, z, opts){
         }
       }
 
-      // 5. UNDER EYE BRIGHTEN
+      // 5. Under eye - hanya sisi kanan
       if(fx.undereye){
-        const lUE=ellipseDist(x,y,leye.x,leye.y+fry*0.04,frx*0.16,fry*0.09,0.5);
-        const rUE=ellipseDist(x,y,reye.x,reye.y+fry*0.04,frx*0.16,fry*0.09,0.5);
-        const ueM=Math.max(lUE,rUE)*fMask;
-        if(ueM>0){
-          const str=intensity*0.30*ueM;
+        const rUE=ellipseDist(x,y,reye.x,reye.y+fry*0.04,frx*0.16,fry*0.09,0.5)*fMask;
+        if(rUE>0){
+          const str=intensity*0.30*rUE;
           r=clamp(r+(255-r)*str*0.42);
           g=clamp(g+(255-g)*str*0.38);
           b=clamp(b+(255-b)*str*0.28);
         }
       }
 
-      // 6. SHADE/FOUNDATION
+      // 6. Shade
       if(fx.smooth && shC && shadeMix>=0.05 && skinM>0){
         const str=intensity*shadeMix*0.40*skinM;
         r=clamp(r*(1-str*0.5)+(r*shC.r/255)*str*0.5);
@@ -823,9 +820,37 @@ let photoOrigData=null, photoZones=null, photoW=0, photoH=0;
 
 function applyPhotoFilter(){
   if(!photoOrigData||!photoZones) return;
-  // Selalu dari pixel asli — tidak akumulasi!
-  const result=applyPixelFilter(photoOrigData,photoZones,{intensity,blushHue,shadeMix,selectedHex,fx});
+  const opts={intensity,blushHue,shadeMix,selectedHex,fx};
+  const result=applyPixelFilter(photoOrigData,photoZones,opts);
   pctx.putImageData(result,0,0);
+
+  // ── Gambar split line & label di photo canvas ──
+  const W=photoCanvas.width, H=photoCanvas.height;
+  const splitX=photoZones.noseBridge.x;
+  const topY=photoZones.fcy-photoZones.fry*1.05;
+  const botY=photoZones.fcy+photoZones.fry*1.05;
+
+  // Garis putih tipis
+  pctx.save();
+  pctx.strokeStyle='rgba(255,255,255,0.85)';
+  pctx.lineWidth=Math.max(1,W*0.002);
+  pctx.setLineDash([Math.round(W*0.012),Math.round(W*0.008)]);
+  pctx.beginPath();
+  pctx.moveTo(splitX,topY);
+  pctx.lineTo(splitX,botY);
+  pctx.stroke();
+  pctx.setLineDash([]);
+
+  // Label
+  const fontSize=Math.round(W*0.040);
+  pctx.font=`bold ${fontSize}px -apple-system,sans-serif`;
+  pctx.textAlign='center';
+  pctx.shadowColor='rgba(0,0,0,0.7)'; pctx.shadowBlur=8;
+  pctx.fillStyle='rgba(255,255,255,0.80)';
+  pctx.fillText('BEFORE', splitX-W*0.14, topY+fontSize*1.2);
+  pctx.fillStyle='rgba(249,168,212,0.95)';
+  pctx.fillText('AFTER', splitX+W*0.14, topY+fontSize*1.2);
+  pctx.restore();
 }
 
 function detectFaceInPhoto(canvasEl){
