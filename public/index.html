@@ -527,101 +527,178 @@ function drawFeatherEdge(pts){
 }
 
 function applyAllEffects(){
-  // Hanya dipakai oleh realtime mode
-  // Photo mode pakai applyPhotoFilter() dengan pixel editing
   if(mode!=='realtime') return;
   const c2d=ctx;
   const W=canvas.width, H=canvas.height;
   const pts=getOvalPts();
   const eff=intensity;
 
-  function buildOvalClip(){c2d.beginPath();buildSmoothPath(c2d,pts);c2d.clip();}
+  // Split point = nose bridge center (landmark 168)
+  const nosePt=lm(168);
+  const splitX=nosePt.x;
 
-  // Smooth
+  // Clip ke oval + sisi kanan (after side)
+  function clipAfter(){
+    c2d.beginPath();
+    buildSmoothPath(c2d,pts);
+    c2d.rect(splitX,0,W-splitX,H);
+    c2d.clip('evenodd');
+    // Balik: clip oval saja tapi hanya dari splitX ke kanan
+    c2d.beginPath();
+    buildSmoothPath(c2d,pts);
+    c2d.clip();
+    c2d.beginPath();
+    c2d.rect(splitX,0,W,H);
+    c2d.clip();
+  }
+
+  function clipOvalRight(){
+    c2d.beginPath();
+    buildSmoothPath(c2d,pts);
+    c2d.clip();
+    c2d.beginPath();
+    c2d.rect(splitX,0,W-splitX,H);
+    c2d.clip();
+  }
+
+  // ── Smooth ──
   if(fx.smooth){
     let r=255,g=225,b=200;
     if(selectedHex){const c=hex2rgb(selectedHex);r=c.r;g=c.g;b=c.b;}
-    c2d.save();buildOvalClip();
-    for(let i=0;i<4;i++){c2d.fillStyle=`rgba(${r},${g},${b},${eff*0.025})`;c2d.fillRect(0,0,W,H);}
+    c2d.save();
+    c2d.beginPath();buildSmoothPath(c2d,pts);c2d.clip();
+    c2d.beginPath();c2d.rect(splitX,0,W-splitX,H);c2d.clip();
+    for(let i=0;i<4;i++){
+      c2d.fillStyle=`rgba(${r},${g},${b},${eff*0.025})`;
+      c2d.fillRect(0,0,W,H);
+    }
     c2d.globalCompositeOperation='screen';
     const n=cen(Z.NOSE);
     const glow=c2d.createRadialGradient(n.x,n.y,0,n.x,n.y,W*0.5);
-    glow.addColorStop(0,`rgba(255,248,240,${eff*0.06})`);
-    glow.addColorStop(0.5,`rgba(255,245,235,${eff*0.03})`);
+    glow.addColorStop(0,`rgba(255,248,240,${eff*0.04})`);
+    glow.addColorStop(0.5,`rgba(255,245,235,${eff*0.02})`);
     glow.addColorStop(1,'rgba(255,245,235,0)');
     c2d.fillStyle=glow;c2d.fillRect(0,0,W,H);
     c2d.restore();
   }
 
-  // Bright
+  // ── Bright ──
   if(fx.bright){
     const n=cen(Z.NOSE),rad=W*0.44,a=eff*0.26;
-    c2d.save();buildOvalClip();c2d.globalCompositeOperation='screen';
+    c2d.save();
+    c2d.beginPath();buildSmoothPath(c2d,pts);c2d.clip();
+    c2d.beginPath();c2d.rect(splitX,0,W-splitX,H);c2d.clip();
+    c2d.globalCompositeOperation='screen';
     const g=c2d.createRadialGradient(n.x,n.y,0,n.x,n.y,rad);
-    g.addColorStop(0,`rgba(255,252,240,${a})`);g.addColorStop(0.4,`rgba(255,248,230,${a*0.6})`);
-    g.addColorStop(0.8,`rgba(255,245,225,${a*0.2})`);g.addColorStop(1,'rgba(255,245,225,0)');
-    c2d.fillStyle=g;c2d.beginPath();c2d.arc(n.x,n.y,rad,0,Math.PI*2);c2d.fill();c2d.restore();
-  }
-
-  // Blush
-  if(fx.blush){
-    const t=blushHue/100;
-    const r=Math.round(235+t*8),g=Math.round(110+t*55),b=Math.round(120-t*50);
-    [Z.LC,Z.RC].forEach(idx=>{
-      const c=cen(idx),bx=W*0.11,by=H*0.09,a=eff*0.52;
-      c2d.save();buildOvalClip();c2d.globalCompositeOperation='multiply';
-      c2d.translate(c.x,c.y);c2d.scale(1,by/bx);
-      const gr=c2d.createRadialGradient(0,0,0,0,0,bx);
-      gr.addColorStop(0,`rgba(${r},${g},${b},${a})`);gr.addColorStop(0.45,`rgba(${r},${g},${b},${a*0.55})`);
-      gr.addColorStop(0.75,`rgba(${r},${g},${b},${a*0.15})`);gr.addColorStop(1,`rgba(${r},${g},${b},0)`);
-      c2d.fillStyle=gr;c2d.beginPath();c2d.arc(0,0,bx,0,Math.PI*2);c2d.fill();
-      c2d.globalCompositeOperation='screen';
-      const gr2=c2d.createRadialGradient(0,0,0,0,0,bx*0.5);
-      gr2.addColorStop(0,`rgba(255,200,200,${eff*0.08})`);gr2.addColorStop(1,'rgba(255,200,200,0)');
-      c2d.fillStyle=gr2;c2d.beginPath();c2d.arc(0,0,bx*0.5,0,Math.PI*2);c2d.fill();c2d.restore();
-    });
-  }
-
-  // Highlight
-  if(fx.highlight){
-    const t4=lm(4),t6=lm(6),fh=cen(Z.FH),a=eff*0.55;
-    c2d.save();c2d.globalCompositeOperation='screen';
-    const bw=W*0.018,bh=Math.abs(t4.y-t6.y)+16;
-    const ng=c2d.createLinearGradient(t6.x-bw,0,t6.x+bw,0);
-    ng.addColorStop(0,'rgba(255,255,255,0)');ng.addColorStop(.5,`rgba(255,255,255,${a*0.85})`);ng.addColorStop(1,'rgba(255,255,255,0)');
-    c2d.fillStyle=ng;c2d.fillRect(t6.x-bw,t6.y-2,bw*2,bh);
-    const fg=c2d.createRadialGradient(fh.x,fh.y,0,fh.x,fh.y,W*0.13);
-    fg.addColorStop(0,`rgba(255,253,245,${a*0.38})`);fg.addColorStop(1,'rgba(255,253,245,0)');
-    c2d.fillStyle=fg;c2d.beginPath();c2d.arc(fh.x,fh.y,W*0.13,0,Math.PI*2);c2d.fill();
-    [Z.LC,Z.RC].forEach(idx=>{
-      const cb=cen(idx);
-      const cbg=c2d.createRadialGradient(cb.x,cb.y,0,cb.x,cb.y,W*0.07);
-      cbg.addColorStop(0,`rgba(255,240,235,${eff*0.12})`);cbg.addColorStop(1,'rgba(255,240,235,0)');
-      c2d.fillStyle=cbg;c2d.beginPath();c2d.arc(cb.x,cb.y,W*0.07,0,Math.PI*2);c2d.fill();
-    });
+    g.addColorStop(0,`rgba(255,252,240,${a})`);
+    g.addColorStop(0.4,`rgba(255,248,230,${a*0.6})`);
+    g.addColorStop(1,'rgba(255,245,225,0)');
+    c2d.fillStyle=g;c2d.beginPath();c2d.arc(n.x,n.y,rad,0,Math.PI*2);c2d.fill();
     c2d.restore();
   }
 
-  // Under eye
+  // ── Blush (kanan saja) ──
+  if(fx.blush){
+    const t=blushHue/100;
+    const r=Math.round(235+t*8),g=Math.round(110+t*55),b=Math.round(120-t*50);
+    const c=cen(Z.RC),bx=W*0.11,by=H*0.09,a=eff*0.52;
+    c2d.save();
+    c2d.beginPath();buildSmoothPath(c2d,pts);c2d.clip();
+    c2d.beginPath();c2d.rect(splitX,0,W-splitX,H);c2d.clip();
+    c2d.globalCompositeOperation='multiply';
+    c2d.translate(c.x,c.y);c2d.scale(1,by/bx);
+    const gr=c2d.createRadialGradient(0,0,0,0,0,bx);
+    gr.addColorStop(0,`rgba(${r},${g},${b},${a})`);
+    gr.addColorStop(0.5,`rgba(${r},${g},${b},${a*0.4})`);
+    gr.addColorStop(1,`rgba(${r},${g},${b},0)`);
+    c2d.fillStyle=gr;c2d.beginPath();c2d.arc(0,0,bx,0,Math.PI*2);c2d.fill();
+    c2d.restore();
+  }
+
+  // ── Highlight (kanan saja) ──
+  if(fx.highlight){
+    const t4=lm(4),t6=lm(6),fh=cen(Z.FH),a=eff*0.45;
+    c2d.save();
+    c2d.beginPath();c2d.rect(splitX,0,W-splitX,H);c2d.clip();
+    c2d.globalCompositeOperation='screen';
+    const bw=W*0.018,bh=Math.abs(t4.y-t6.y)+16;
+    const ng=c2d.createLinearGradient(t6.x-bw,0,t6.x+bw,0);
+    ng.addColorStop(0,'rgba(255,255,255,0)');
+    ng.addColorStop(.5,`rgba(255,255,255,${a*0.8})`);
+    ng.addColorStop(1,'rgba(255,255,255,0)');
+    c2d.fillStyle=ng;c2d.fillRect(t6.x-bw,t6.y-2,bw*2,bh);
+    const fg=c2d.createRadialGradient(fh.x,fh.y,0,fh.x,fh.y,W*0.12);
+    fg.addColorStop(0,`rgba(255,253,245,${a*0.35})`);
+    fg.addColorStop(1,'rgba(255,253,245,0)');
+    c2d.fillStyle=fg;c2d.beginPath();c2d.arc(fh.x,fh.y,W*0.12,0,Math.PI*2);c2d.fill();
+    c2d.restore();
+  }
+
+  // ── Under eye (kanan saja) ──
   if(fx.undereye){
-    [Z.LE,Z.RE].forEach(idx=>{
-      const c=cen(idx),r=W*0.048,a=eff*0.35;
-      c2d.save();c2d.globalCompositeOperation='screen';
-      const g=c2d.createRadialGradient(c.x,c.y+r*0.5,0,c.x,c.y+r*0.5,r*0.85);
-      g.addColorStop(0,`rgba(255,250,235,${a})`);g.addColorStop(0.5,`rgba(255,246,225,${a*0.45})`);g.addColorStop(1,'rgba(255,246,225,0)');
-      c2d.fillStyle=g;c2d.beginPath();c2d.ellipse(c.x,c.y+r*0.5,r*0.72,r*0.40,0,0,Math.PI*2);c2d.fill();c2d.restore();
-    });
+    const reye=cen(Z.RE),r=W*0.046,a=eff*0.32;
+    c2d.save();
+    c2d.beginPath();c2d.rect(splitX,0,W-splitX,H);c2d.clip();
+    c2d.globalCompositeOperation='screen';
+    const g=c2d.createRadialGradient(reye.x,reye.y+r*0.5,0,reye.x,reye.y+r*0.5,r*0.8);
+    g.addColorStop(0,`rgba(255,250,235,${a})`);
+    g.addColorStop(0.6,`rgba(255,246,225,${a*0.4})`);
+    g.addColorStop(1,'rgba(255,246,225,0)');
+    c2d.fillStyle=g;c2d.beginPath();
+    c2d.ellipse(reye.x,reye.y+r*0.5,r*0.7,r*0.38,0,0,Math.PI*2);
+    c2d.fill();c2d.restore();
   }
 
-  // Shade overlay
+  // ── Shade overlay (kanan saja) ──
   if(selectedHex&&shadeMix>=0.05){
-    const{r,g,b}=hex2rgb(selectedHex),a=eff*shadeMix*0.26;
-    c2d.save();buildOvalClip();c2d.globalCompositeOperation='multiply';
-    c2d.fillStyle=`rgba(${r},${g},${b},${a})`;c2d.fillRect(0,0,W,H);c2d.restore();
+    const{r,g,b}=hex2rgb(selectedHex),a=eff*shadeMix*0.24;
+    c2d.save();
+    c2d.beginPath();buildSmoothPath(c2d,pts);c2d.clip();
+    c2d.beginPath();c2d.rect(splitX,0,W-splitX,H);c2d.clip();
+    c2d.globalCompositeOperation='multiply';
+    c2d.fillStyle=`rgba(${r},${g},${b},${a})`;
+    c2d.fillRect(0,0,W,H);
+    c2d.restore();
   }
 
-  // Feather tepi
+  // ── Feather tepi oval ──
   drawFeatherEdge(pts);
+
+  // ── Split line & label ──
+  // Gambar di guide-canvas agar tidak ikut export
+  gctx.clearRect(0,0,guideCanvas.width,guideCanvas.height);
+
+  // Face oval guide
+  const pts2=getOvalPts();
+  gctx.save();
+  gctx.beginPath();buildSmoothPath(gctx,pts2);
+  gctx.strokeStyle=faceOn?'rgba(240,40,122,0.5)':'rgba(255,255,255,0.1)';
+  gctx.lineWidth=Math.max(1.5,canvas.width*0.002);
+  gctx.stroke();
+
+  // Split line vertikal
+  const topPt=lm(10), botPt=lm(152);
+  gctx.strokeStyle='rgba(255,255,255,0.80)';
+  gctx.lineWidth=Math.max(1.5,W*0.002);
+  gctx.setLineDash([Math.round(W*0.01),Math.round(W*0.007)]);
+  gctx.beginPath();
+  gctx.moveTo(splitX, topPt.y);
+  gctx.lineTo(splitX, botPt.y);
+  gctx.stroke();
+  gctx.setLineDash([]);
+
+  // Label BEFORE / AFTER
+  const fontSize=Math.round(W*0.030);
+  gctx.font=`bold ${fontSize}px -apple-system,sans-serif`;
+  gctx.textAlign='center';
+  gctx.shadowColor='rgba(0,0,0,0.8)';
+  gctx.shadowBlur=8;
+  const labelY=topPt.y - fontSize*0.5;
+  gctx.fillStyle='rgba(255,255,255,0.85)';
+  gctx.fillText('BEFORE', splitX - W*0.12, labelY);
+  gctx.fillStyle='rgba(249,168,212,1)';
+  gctx.fillText('AFTER', splitX + W*0.12, labelY);
+  gctx.restore();
 }
 
 // ── REALTIME: render frame ─────────────────────────────────────
@@ -655,8 +732,7 @@ function onRealtimeResults(res){
     const raw=res.multiFaceLandmarks[0];
     // Kalman lebih responsive (q=0.018)
     landmarks=raw.map((l,i)=>{return{x:kfX[i].u(l.x),y:kfY[i].u(l.y),z:l.z}});
-    applyAllEffects();
-    drawFaceGuide();
+    applyAllEffects(); // handles both effects + guide canvas
     if(!faceOn){faceOn=true;facePill.textContent='✦ Face detected';facePill.classList.add('on');}
   }else{
     gctx.clearRect(0,0,guideCanvas.width,guideCanvas.height);
