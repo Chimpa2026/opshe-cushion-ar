@@ -414,7 +414,138 @@ input[type=range]::-webkit-slider-thumb{
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
 <script>
-const BRANDS=[{id:"wardah",name:"Wardah",products:[{id:"w-lc",name:"Lightening Cushion",shades:[{id:"01",name:"Ivory",hex:"#F5E6D3"},{id:"02",name:"Natural Beige",hex:"#EDD5B3"},{id:"03",name:"Sand Beige",hex:"#D4B896"},{id:"04",name:"Warm Beige",hex:"#C9A882"},{id:"05",name:"Caramel",hex:"#B8935A"}]},{id:"w-em",name:"Exclusive Matte",shades:[{id:"01",name:"Light Beige",hex:"#F2DFC8"},{id:"02",name:"Natural",hex:"#E8CBA8"},{id:"03",name:"Buff Beige",hex:"#D4B48C"}]}]},{id:"emina",name:"Emina",products:[{id:"e-bb",name:"BB Cushion",shades:[{id:"01",name:"Porcelain",hex:"#F8EAD8"},{id:"02",name:"Natural Beige",hex:"#EDCFA8"},{id:"03",name:"Golden Beige",hex:"#D4A876"},{id:"04",name:"Honey",hex:"#C49060"}]}]},{id:"maybelline",name:"Maybelline",products:[{id:"m-ss",name:"SuperStay Cushion",shades:[{id:"10",name:"Ivory",hex:"#F5E2CC"},{id:"20",name:"Cameo",hex:"#EDD0A8"},{id:"21",name:"Nude Beige",hex:"#E4C090"},{id:"30",name:"Sand",hex:"#D4A872"},{id:"40",name:"Fawn",hex:"#C49060"},{id:"50",name:"Sun Beige",hex:"#B07840"}]},{id:"m-fm",name:"Fit Me Cushion",shades:[{id:"110",name:"Porcelain",hex:"#F8E8D4"},{id:"120",name:"Classic Ivory",hex:"#F0D8B8"},{id:"130",name:"Buff Beige",hex:"#E4C898"},{id:"220",name:"Natural Beige",hex:"#D8B484"},{id:"230",name:"Natural Buff",hex:"#C8A070"},{id:"330",name:"Toffee",hex:"#A87848"}]}]},{id:"loreal",name:"L'Oréal",products:[{id:"l-tm",name:"True Match Cushion",shades:[{id:"W1",name:"Golden Ivory",hex:"#F4DFC0"},{id:"W2",name:"Golden Beige",hex:"#E8CA98"},{id:"W3",name:"Golden Wheat",hex:"#D4B07C"},{id:"N1",name:"Soft Ivory",hex:"#F4E2CC"},{id:"N2",name:"Vanilla",hex:"#EAD0A8"},{id:"C1",name:"Rose Ivory",hex:"#F0DDD0"},{id:"C2",name:"Rose Beige",hex:"#E0C4A8"}]}]},{id:"makeover",name:"Make Over",products:[{id:"mo-ps",name:"Powerstay Cushion",shades:[{id:"N10",name:"Light Porcelain",hex:"#F5E4D0"},{id:"N20",name:"Light Ivory",hex:"#EDD4B0"},{id:"N30",name:"Natural Beige",hex:"#DEC090"},{id:"W10",name:"Warm Porcelain",hex:"#F4DEC0"},{id:"W20",name:"Warm Ivory",hex:"#E8C898"},{id:"W30",name:"Warm Beige",hex:"#D4A870"},{id:"C10",name:"Cool Porcelain",hex:"#F4E2D4"}]}]},{id:"somethinc",name:"Somethinc",products:[{id:"sc-blur",name:"Blur + Bakuchiol",shades:[{id:"01W",name:"Alabaster",hex:"#F8EAD8"},{id:"02W",name:"Porcelain",hex:"#F0D8B8"},{id:"03N",name:"Natural Ivory",hex:"#E4C898"},{id:"04W",name:"Golden Beige",hex:"#D8B47C"},{id:"05W",name:"Caramel",hex:"#C49860"},{id:"06N",name:"Warm Sand",hex:"#B88448"}]}]},{id:"msglow",name:"MS Glow",products:[{id:"msg-fl",name:"Flawless Cushion",shades:[{id:"01",name:"Ivory",hex:"#F5E0C8"},{id:"02",name:"Beige",hex:"#E8C8A0"},{id:"03",name:"Sand",hex:"#D8B080"},{id:"04",name:"Golden",hex:"#C89860"}]}]},{id:"hanasui",name:"Hanasui",products:[{id:"hs-mt",name:"Mattedorable",shades:[{id:"01",name:"Porcelain White",hex:"#F8EAD8"},{id:"02",name:"Natural Beige",hex:"#EDCFA8"},{id:"03",name:"Warm Beige",hex:"#DEB888"},{id:"04",name:"Golden Beige",hex:"#CDA070"}]}]},{id:"pixy",name:"Pixy",products:[{id:"px-uv",name:"UV Whitening",shades:[{id:"01",name:"Light Beige",hex:"#F4E0C8"},{id:"02",name:"Beige",hex:"#E8CCB0"},{id:"03",name:"Natural Beige",hex:"#D8B890"}]}]},{id:"scarlett",name:"Scarlett",products:[{id:"sc-br",name:"Brightening Cushion",shades:[{id:"01",name:"Fair",hex:"#F5E4D2"},{id:"02",name:"Natural",hex:"#E8D0B0"},{id:"03",name:"Beige",hex:"#D8B890"},{id:"04",name:"Warm",hex:"#C8A070"}]}]}];
+const BRANDS=[
+  {id:"wardah",name:"Wardah",products:[
+    {id:"w-lc",name:"Lightening Cushion",shades:[
+      {id:"01",name:"Ivory",hex:"#F5E6D3"},
+      {id:"02",name:"Natural Beige",hex:"#EDD5B3"},
+      {id:"03",name:"Sand Beige",hex:"#D4B896"},
+      {id:"04",name:"Warm Beige",hex:"#C9A882"},
+      {id:"05",name:"Caramel",hex:"#B8935A"}
+    ]},
+    {id:"w-em",name:"Exclusive Matte",shades:[
+      {id:"01",name:"Light Beige",hex:"#F2DFC8"},
+      {id:"02",name:"Natural",hex:"#E8CBA8"},
+      {id:"03",name:"Buff Beige",hex:"#D4B48C"}
+    ]}
+  ]},
+  {id:"emina",name:"Emina",products:[
+    {id:"e-bb",name:"BB Cushion",shades:[
+      {id:"01",name:"Porcelain",hex:"#F8EAD8"},
+      {id:"02",name:"Natural Beige",hex:"#EDCFA8"},
+      {id:"03",name:"Golden Beige",hex:"#D4A876"},
+      {id:"04",name:"Honey",hex:"#C49060"}
+    ]}
+  ]},
+  {id:"maybelline",name:"Maybelline",products:[
+    {id:"m-ss",name:"SuperStay Cushion",shades:[
+      {id:"10",name:"Ivory",hex:"#F5E2CC"},
+      {id:"20",name:"Cameo",hex:"#EDD0A8"},
+      {id:"21",name:"Nude Beige",hex:"#E4C090"},
+      {id:"30",name:"Sand",hex:"#D4A872"},
+      {id:"40",name:"Fawn",hex:"#C49060"},
+      {id:"50",name:"Sun Beige",hex:"#B07840"}
+    ]},
+    {id:"m-fm",name:"Fit Me Cushion",shades:[
+      {id:"110",name:"Porcelain",hex:"#F8E8D4"},
+      {id:"120",name:"Classic Ivory",hex:"#F0D8B8"},
+      {id:"130",name:"Buff Beige",hex:"#E4C898"},
+      {id:"220",name:"Natural Beige",hex:"#D8B484"},
+      {id:"230",name:"Natural Buff",hex:"#C8A070"},
+      {id:"330",name:"Toffee",hex:"#A87848"}
+    ]}
+  ]},
+  {id:"makeover",name:"Make Over",products:[
+    {id:"mo-ps",name:"Powerstay Cushion",shades:[
+      {id:"N10",name:"Light Porcelain",hex:"#F5E4D0"},
+      {id:"N20",name:"Light Ivory",hex:"#EDD4B0"},
+      {id:"N30",name:"Natural Beige",hex:"#DEC090"},
+      {id:"W10",name:"Warm Porcelain",hex:"#F4DEC0"},
+      {id:"W20",name:"Warm Ivory",hex:"#E8C898"},
+      {id:"W30",name:"Warm Beige",hex:"#D4A870"},
+      {id:"C10",name:"Cool Porcelain",hex:"#F4E2D4"}
+    ]}
+  ]},
+  {id:"somethinc",name:"Somethinc",products:[
+    {id:"sc-blur",name:"Blur + Bakuchiol",shades:[
+      {id:"01W",name:"Alabaster",hex:"#F8EAD8"},
+      {id:"02W",name:"Porcelain",hex:"#F0D8B8"},
+      {id:"03N",name:"Natural Ivory",hex:"#E4C898"},
+      {id:"04W",name:"Golden Beige",hex:"#D8B47C"},
+      {id:"05W",name:"Caramel",hex:"#C49860"},
+      {id:"06N",name:"Warm Sand",hex:"#B88448"}
+    ]}
+  ]},
+  {id:"hanasui",name:"Hanasui",products:[
+    {id:"hs-mt",name:"Mattedorable Cushion",shades:[
+      {id:"01",name:"Porcelain White",hex:"#F8EAD8"},
+      {id:"02",name:"Natural Beige",hex:"#EDCFA8"},
+      {id:"03",name:"Warm Beige",hex:"#DEB888"},
+      {id:"04",name:"Golden Beige",hex:"#CDA070"}
+    ]}
+  ]},
+  {id:"skintific",name:"Skintific",products:[
+    {id:"sk-5x",name:"5X Ceramide Barrier",shades:[
+      {id:"01",name:"Porcelain",hex:"#F8ECD8"},
+      {id:"02",name:"Ivory",hex:"#F0D8B8"},
+      {id:"03",name:"Natural Beige",hex:"#E4C898"},
+      {id:"04",name:"Sand Beige",hex:"#D4B07C"},
+      {id:"05",name:"Warm Beige",hex:"#C49860"}
+    ]},
+    {id:"sk-mc",name:"Mineral Cooling Cushion",shades:[
+      {id:"01C",name:"Cool Ivory",hex:"#F4E2D0"},
+      {id:"02N",name:"Natural Ivory",hex:"#EDD0B0"},
+      {id:"03W",name:"Warm Beige",hex:"#D8B888"},
+      {id:"04W",name:"Sand",hex:"#C8A070"}
+    ]}
+  ]},
+  {id:"omg",name:"OMG",products:[
+    {id:"omg-oh",name:"Oh My Glow Cushion",shades:[
+      {id:"01",name:"Fair",hex:"#F6E8D4"},
+      {id:"02",name:"Light Beige",hex:"#EDD4B0"},
+      {id:"03",name:"Natural",hex:"#E0C090"},
+      {id:"04",name:"Beige",hex:"#D0A870"},
+      {id:"05",name:"Warm",hex:"#C09058"}
+    ]},
+    {id:"omg-hd",name:"HD Cushion",shades:[
+      {id:"01",name:"Ivory",hex:"#F5E4CC"},
+      {id:"02",name:"Natural Beige",hex:"#E8CCAA"},
+      {id:"03",name:"Buff",hex:"#D8B488"},
+      {id:"04",name:"Golden",hex:"#C8A068"}
+    ]}
+  ]},
+  {id:"glad2glow",name:"Glad2Glow",products:[
+    {id:"g2g-gc",name:"Glow Cushion",shades:[
+      {id:"01",name:"Porcelain",hex:"#F8EAD8"},
+      {id:"02",name:"Natural Ivory",hex:"#F0D4B4"},
+      {id:"03",name:"Warm Ivory",hex:"#E4C090"},
+      {id:"04",name:"Beige",hex:"#D4A870"},
+      {id:"05",name:"Honey Beige",hex:"#C49058"}
+    ]},
+    {id:"g2g-bb",name:"BB Glow Cushion",shades:[
+      {id:"21",name:"Light",hex:"#F2DCC0"},
+      {id:"23",name:"Natural",hex:"#E4C498"},
+      {id:"25",name:"Beige",hex:"#D4AE80"},
+      {id:"27",name:"Warm",hex:"#C49868"}
+    ]}
+  ]},
+  {id:"luxcrime",name:"Luxcrime",products:[
+    {id:"lx-ul",name:"Ultra Cushion",shades:[
+      {id:"C1",name:"Cool Ivory",hex:"#F6E4D2"},
+      {id:"N1",name:"Neutral Ivory",hex:"#EDD4B0"},
+      {id:"N2",name:"Natural Beige",hex:"#E0C090"},
+      {id:"W1",name:"Warm Ivory",hex:"#D8B478"},
+      {id:"W2",name:"Warm Beige",hex:"#C8A060"}
+    ]},
+    {id:"lx-sk",name:"Skincare Cushion",shades:[
+      {id:"01",name:"Porcelain",hex:"#F8ECD6"},
+      {id:"02",name:"Ivory",hex:"#F0D8B2"},
+      {id:"03",name:"Natural",hex:"#E2C490"},
+      {id:"04",name:"Beige",hex:"#D2AE74"},
+      {id:"05",name:"Warm Sand",hex:"#C29858"}
+    ]}
+  ]}
+];
 
 // ── State ──────────────────────────────────────────────────────
 let mode = null; // 'realtime' | 'photo'
