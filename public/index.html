@@ -1119,59 +1119,47 @@ document.getElementById('photo-download-btn').onclick=()=>{
 
 function enhanceExportPhoto(srcCanvas, zones){
   const W=srcCanvas.width, H=srcCanvas.height;
-
-  // Output canvas
   const out=document.createElement('canvas');
   out.width=W; out.height=H;
   const oc=out.getContext('2d');
   oc.imageSmoothingEnabled=true;
   oc.imageSmoothingQuality='high';
-
-  // Gambar source ke out dulu
   oc.drawImage(srcCanvas,0,0,W,H);
 
-  // ── Step 1: Background blur via CSS filter ──
+  // ── BG Blur (hanya kalau ada zones/landmark) ──
   if(zones){
     const {fcx,fcy,frx,fry}=zones;
-    // Blur version
     const bg=document.createElement('canvas');
     bg.width=W; bg.height=H;
     const bc=bg.getContext('2d');
-    bc.filter='blur(6px)';
+    bc.filter='blur(8px)';
     bc.drawImage(srcCanvas,0,0,W,H);
     bc.filter='none';
-    // Mask: wajah sharp, bg blur
-    // Gambar bg blur dulu, lalu overlay sharp wajah via mask
     const tmp2=document.createElement('canvas');
     tmp2.width=W; tmp2.height=H;
     const tc=tmp2.getContext('2d');
-    tc.drawImage(bg,0,0); // bg blur full
-    // Face mask gradient (sharp area)
-    const expandX=frx*1.3, expandY=fry*1.3;
+    tc.drawImage(bg,0,0);
     tc.save();
     tc.globalCompositeOperation='destination-out';
-    const mg=tc.createRadialGradient(fcx,fcy,Math.min(frx,fry)*0.5,fcx,fcy,Math.max(expandX,expandY));
+    const mg=tc.createRadialGradient(fcx,fcy,frx*0.45,fcx,fcy,Math.max(frx,fry)*1.4);
     mg.addColorStop(0,'rgba(0,0,0,1)');
-    mg.addColorStop(0.6,'rgba(0,0,0,0.9)');
-    mg.addColorStop(0.85,'rgba(0,0,0,0.4)');
+    mg.addColorStop(0.55,'rgba(0,0,0,0.9)');
+    mg.addColorStop(0.80,'rgba(0,0,0,0.4)');
     mg.addColorStop(1,'rgba(0,0,0,0)');
-    tc.fillStyle=mg;
-    tc.fillRect(0,0,W,H);
+    tc.fillStyle=mg; tc.fillRect(0,0,W,H);
     tc.restore();
-    // Composite: blur bg + sharp face
     oc.clearRect(0,0,W,H);
-    oc.drawImage(srcCanvas,0,0,W,H); // sharp base
+    oc.drawImage(srcCanvas,0,0,W,H);
     oc.save();
     oc.globalCompositeOperation='destination-over';
-    oc.drawImage(tmp2,0,0); // blur bg underneath
+    oc.drawImage(tmp2,0,0);
     oc.restore();
     oc.globalCompositeOperation='source-over';
   }
 
-  // ── Step 2: Pixel editing — color grade + skin smooth ──
+  // ── Pixel enhancement ──
   let imgData;
-  try{ imgData=oc.getImageData(0,0,W,H); }
-  catch(e){ return out; } // CORS safety
+  try{ imgData=oc.getImageData(0,0,W,H); } catch(e){ return out; }
   const data=imgData.data;
 
   for(let y=0;y<H;y++){
@@ -1187,40 +1175,46 @@ function enhanceExportPhoto(srcCanvas, zones){
         fW=d<0.65?1:d<1.0?Math.max(0,(1-d)/0.35):0;
       }
 
-      // Skin smooth di area wajah
+      // Skin smooth
       if(fW>0){
         const lum=r*0.299+g*0.587+b*0.114;
-        const tgt=Math.min(255,lum*1.05+6);
-        const s=fW*0.40;
+        const tgt=Math.min(255,lum*1.06+8);
+        const s=fW*0.45;
         if(lum>0){
           r=Math.min(255,Math.round(r+(r*tgt/lum-r)*s));
           g=Math.min(255,Math.round(g+(g*tgt/lum-g)*s*0.92));
-          b=Math.min(255,Math.round(b+(b*tgt/lum-b)*s*0.80));
+          b=Math.min(255,Math.round(b+(b*tgt/lum-b)*s*0.78));
         }
       }
 
-      // S-curve contrast (semua pixel)
+      // S-curve contrast — lebih kuat
       const curve=(v)=>{
         const t=v/255;
-        return Math.round((t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2)*255*0.85+v*0.15);
+        return Math.round((t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2)*255*0.82+v*0.18);
       };
       r=curve(r); g=curve(g); b=curve(b);
 
-      // Warm tone
-      r=Math.min(255,r+4);
+      // Warm cinematic tone
+      r=Math.min(255,r+5);
       g=Math.min(255,g+1);
-      b=Math.max(0,b-3);
+      b=Math.max(0,b-4);
 
-      // Vibrance
+      // Vibrance boost
       const mx=Math.max(r,g,b),mn=Math.min(r,g,b);
       const sat=(mx-mn)/Math.max(1,mx);
-      const vStr=0.15*(1-sat);
+      const vStr=0.22*(1-sat);
       if(mx>mn){
         const av=(r+g+b)/3;
         r=Math.min(255,Math.round(r+(r-av)*vStr));
         g=Math.min(255,Math.round(g+(g-av)*vStr));
         b=Math.min(255,Math.round(b+(b-av)*vStr));
       }
+
+      // Clarity
+      const mid=128;
+      r=Math.min(255,Math.max(0,Math.round(r+(r-mid)*0.10)));
+      g=Math.min(255,Math.max(0,Math.round(g+(g-mid)*0.10)));
+      b=Math.min(255,Math.max(0,Math.round(b+(b-mid)*0.10)));
 
       data[i]=Math.min(255,Math.max(0,r));
       data[i+1]=Math.min(255,Math.max(0,g));
@@ -1229,49 +1223,44 @@ function enhanceExportPhoto(srcCanvas, zones){
   }
   oc.putImageData(imgData,0,0);
 
-  // ── Step 3: Eye brightening ──
+  // ── Eye brightening ──
   if(zones&&zones.leye&&zones.reye){
     [zones.leye,zones.reye].forEach(eye=>{
-      const er=W*0.048;
+      const er=W*0.050;
       oc.save();
       oc.globalCompositeOperation='screen';
       const eg=oc.createRadialGradient(eye.x,eye.y,0,eye.x,eye.y,er);
-      eg.addColorStop(0,`rgba(255,255,240,0.30)`);
-      eg.addColorStop(0.5,`rgba(255,255,240,0.10)`);
+      eg.addColorStop(0,'rgba(255,255,240,0.32)');
+      eg.addColorStop(0.5,'rgba(255,255,240,0.12)');
       eg.addColorStop(1,'rgba(255,255,240,0)');
       oc.fillStyle=eg;
-      oc.beginPath();
-      oc.ellipse(eye.x,eye.y,er*0.85,er*0.45,0,0,Math.PI*2);
-      oc.fill();
+      oc.beginPath();oc.ellipse(eye.x,eye.y,er*0.88,er*0.48,0,0,Math.PI*2);oc.fill();
       oc.restore();
     });
   }
 
-  // ── Step 4: Lip saturation ──
+  // ── Lip saturation ──
   if(zones){
     const lx=zones.fcx, ly=zones.fcy+zones.fry*0.36;
-    const lr=zones.frx*0.16;
+    const lr=zones.frx*0.18;
     oc.save();
     oc.globalCompositeOperation='multiply';
     const lg=oc.createRadialGradient(lx,ly,0,lx,ly,lr);
-    lg.addColorStop(0,'rgba(200,80,80,0.22)');
-    lg.addColorStop(0.6,'rgba(200,80,80,0.08)');
-    lg.addColorStop(1,'rgba(200,80,80,0)');
+    lg.addColorStop(0,'rgba(190,70,70,0.25)');
+    lg.addColorStop(0.6,'rgba(190,70,70,0.08)');
+    lg.addColorStop(1,'rgba(190,70,70,0)');
     oc.fillStyle=lg;
-    oc.beginPath();
-    oc.ellipse(lx,ly,lr,lr*0.42,0,0,Math.PI*2);
-    oc.fill();
+    oc.beginPath();oc.ellipse(lx,ly,lr,lr*0.40,0,0,Math.PI*2);oc.fill();
     oc.restore();
   }
 
-  // ── Step 5: Vignette ──
-  const vg=oc.createRadialGradient(W/2,H/2,Math.min(W,H)*0.32,W/2,H/2,Math.max(W,H)*0.72);
+  // ── Vignette kuat ──
+  const vg=oc.createRadialGradient(W/2,H/2,Math.min(W,H)*0.30,W/2,H/2,Math.max(W,H)*0.70);
   vg.addColorStop(0,'rgba(0,0,0,0)');
-  vg.addColorStop(0.65,'rgba(0,0,0,0)');
-  vg.addColorStop(0.85,'rgba(0,0,0,0.20)');
-  vg.addColorStop(1,'rgba(0,0,0,0.52)');
-  oc.fillStyle=vg;
-  oc.fillRect(0,0,W,H);
+  vg.addColorStop(0.60,'rgba(0,0,0,0)');
+  vg.addColorStop(0.82,'rgba(0,0,0,0.22)');
+  vg.addColorStop(1,'rgba(0,0,0,0.55)');
+  oc.fillStyle=vg; oc.fillRect(0,0,W,H);
 
   return out;
 }
@@ -1281,18 +1270,16 @@ document.getElementById('cam-btn').onclick=()=>{
   if(mode!=='realtime')return;
   const W=canvas.width, H=canvas.height;
 
-  // STEP 1: Render video + efek dalam koordinat ASLI (tidak di-flip dulu)
+  // Step 1: Composite video + efek (koordinat asli, belum flip)
   const raw=document.createElement('canvas');
   raw.width=W; raw.height=H;
   const rc=raw.getContext('2d');
   rc.imageSmoothingEnabled=true;
   rc.imageSmoothingQuality='high';
-  // Video asli (tidak flip) - koordinat sama dengan landmark
-  rc.drawImage(video,0,0,W,H);
-  // Canvas efek (tidak flip) - koordinat sama dengan video asli
-  rc.drawImage(canvas,0,0,W,H);
+  rc.drawImage(video,0,0,W,H);   // video asli
+  rc.drawImage(canvas,0,0,W,H);  // efek (koordinat sama dengan video)
 
-  // STEP 2: Flip seluruh hasil sekaligus (mirror selfie = natural untuk foto)
+  // Step 2: Flip sekali - mirror selfie
   const flipped=document.createElement('canvas');
   flipped.width=W; flipped.height=H;
   const fc=flipped.getContext('2d');
@@ -1303,10 +1290,42 @@ document.getElementById('cam-btn').onclick=()=>{
   fc.drawImage(raw,0,0,W,H);
   fc.restore();
 
-  // STEP 3: Enhance + info bar
+  // Step 3: Enhance
   const enhanced=enhanceExportPhoto(flipped,null);
   const ec=enhanced.getContext('2d');
 
+  // Step 4: Gambar split line & BEFORE/AFTER di export
+  // Setelah flip, splitX juga perlu di-flip: exportSplitX = W - splitX
+  const nosePt=lm(168);
+  const exportSplitX=W - nosePt.x; // mirror dari splitX
+
+  const topPt=lm(10), botPt=lm(152);
+  const exportTopY=topPt.y, exportBotY=botPt.y;
+
+  // Garis split
+  ec.save();
+  ec.strokeStyle='rgba(255,255,255,0.82)';
+  ec.lineWidth=Math.max(1.5,W*0.002);
+  ec.setLineDash([Math.round(W*0.012),Math.round(W*0.008)]);
+  ec.beginPath();
+  ec.moveTo(exportSplitX, exportTopY);
+  ec.lineTo(exportSplitX, exportBotY);
+  ec.stroke();
+  ec.setLineDash([]);
+
+  // Label BEFORE (kiri dari split = before di export)
+  const fs=Math.round(W*0.032);
+  ec.font=`bold ${fs}px -apple-system,sans-serif`;
+  ec.textAlign='center';
+  ec.shadowColor='rgba(0,0,0,0.8)'; ec.shadowBlur=8;
+  ec.fillStyle='rgba(255,255,255,0.85)';
+  ec.fillText('BEFORE', exportSplitX - W*0.13, exportTopY - Math.round(H*0.015));
+  // Label AFTER (kanan dari split = after di export)
+  ec.fillStyle='rgba(249,168,212,1)';
+  ec.fillText('AFTER', exportSplitX + W*0.13, exportTopY - Math.round(H*0.015));
+  ec.restore();
+
+  // Step 5: Info bar bawah (sama dengan photo mode)
   const barH=Math.round(H*0.22);
   const bg=ec.createLinearGradient(0,H-barH,0,H);
   bg.addColorStop(0,'rgba(0,0,0,0)');
