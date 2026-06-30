@@ -664,39 +664,60 @@ function applyAllEffects(){
   const pts=getOvalPts();
   const eff=intensity;
 
-  // Split: nose bridge center landmark
+  // Split point
   const nosePt=lm(168);
   const splitX=nosePt.x;
-  // Di layar (CSS flip): splitX landmark = W-splitX di layar
-  // Sisi AFTER di layar = kanan layar = KIRI landmark = x < splitX
+  // Kiri landmark = kanan layar (CSS flip) = AFTER side
 
-  // ── Smooth (kiri landmark = kanan layar = AFTER) ──
-  if(fx.smooth){
-    let r=255,g=225,b=200;
-    if(selectedHex){const c=hex2rgb(selectedHex);r=c.r;g=c.g;b=c.b;}
-    c2d.save();
+  function clipAfter(c2d){
     c2d.beginPath();buildSmoothPath(c2d,pts);c2d.clip();
-    c2d.beginPath();c2d.rect(0,0,splitX,H);c2d.clip(); // kiri landmark = kanan layar
-    for(let i=0;i<4;i++){
-      c2d.fillStyle=`rgba(${r},${g},${b},${eff*0.025})`;
-      c2d.fillRect(0,0,W,H);
-    }
-    c2d.globalCompositeOperation='screen';
-    const n=cen(Z.NOSE);
-    const glow=c2d.createRadialGradient(n.x,n.y,0,n.x,n.y,W*0.5);
-    glow.addColorStop(0,`rgba(255,248,240,${eff*0.04})`);
-    glow.addColorStop(0.5,`rgba(255,245,235,${eff*0.02})`);
-    glow.addColorStop(1,'rgba(255,245,235,0)');
-    c2d.fillStyle=glow;c2d.fillRect(0,0,W,H);
+    c2d.beginPath();c2d.rect(0,0,splitX,H);c2d.clip();
+  }
+
+  // ── 1. FOUNDATION/SHADE (efek paling penting - harus kuat) ──
+  // Ini yang bikin cushion terlihat nyata: menutupi dan menyamakan warna kulit
+  if(selectedHex&&shadeMix>=0.01){
+    const{r,g,b}=hex2rgb(selectedHex);
+    c2d.save(); clipAfter(c2d);
+    // Layer 1: Multiply untuk blend warna
+    c2d.globalCompositeOperation='multiply';
+    const baseA = eff*shadeMix*0.55; // lebih kuat
+    c2d.fillStyle=`rgba(${r},${g},${b},${baseA})`;
+    c2d.fillRect(0,0,W,H);
+    // Layer 2: Source-over untuk coverage/opacity
+    c2d.globalCompositeOperation='source-over';
+    const coverA = eff*shadeMix*0.28; // coverage layer
+    c2d.fillStyle=`rgba(${r},${g},${b},${coverA})`;
+    c2d.fillRect(0,0,W,H);
     c2d.restore();
   }
 
-  // ── Bright ──
+  // ── 2. SKIN SMOOTHING (poreless look) ──
+  if(fx.smooth){
+    let r=255,g=225,b=200;
+    if(selectedHex){const c=hex2rgb(selectedHex);r=c.r;g=c.g;b=c.b;}
+    c2d.save(); clipAfter(c2d);
+    // Screen untuk luminosity
+    c2d.globalCompositeOperation='screen';
+    const n=cen(Z.NOSE);
+    const glow=c2d.createRadialGradient(n.x,n.y,0,n.x,n.y,W*0.5);
+    glow.addColorStop(0,`rgba(255,248,240,${eff*0.10})`);
+    glow.addColorStop(0.6,`rgba(255,245,235,${eff*0.05})`);
+    glow.addColorStop(1,'rgba(255,245,235,0)');
+    c2d.fillStyle=glow;c2d.fillRect(0,0,W,H);
+    // Skin tone overlay
+    c2d.globalCompositeOperation='source-over';
+    for(let i=0;i<5;i++){
+      c2d.fillStyle=`rgba(${r},${g},${b},${eff*0.040})`;
+      c2d.fillRect(0,0,W,H);
+    }
+    c2d.restore();
+  }
+
+  // ── 3. BRIGHTENING (dewy glow) ──
   if(fx.bright){
-    const n=cen(Z.NOSE),rad=W*0.44,a=eff*0.26;
-    c2d.save();
-    c2d.beginPath();buildSmoothPath(c2d,pts);c2d.clip();
-    c2d.beginPath();c2d.rect(0,0,splitX,H);c2d.clip();
+    const n=cen(Z.NOSE),rad=W*0.44,a=eff*0.32;
+    c2d.save(); clipAfter(c2d);
     c2d.globalCompositeOperation='screen';
     const g=c2d.createRadialGradient(n.x,n.y,0,n.x,n.y,rad);
     g.addColorStop(0,`rgba(255,252,240,${a})`);
@@ -706,128 +727,98 @@ function applyAllEffects(){
     c2d.restore();
   }
 
-  // ── Blush kiri landmark (kanan layar = AFTER) ──
+  // ── 4. BLUSH ──
   if(fx.blush){
     const t=blushHue/100;
     const r=Math.round(235+t*8),g=Math.round(110+t*55),b=Math.round(120-t*50);
-    const c=cen(Z.LC),bx=W*0.11,by=H*0.09,a=eff*0.52;
-    c2d.save();
-    c2d.beginPath();buildSmoothPath(c2d,pts);c2d.clip();
-    c2d.beginPath();c2d.rect(0,0,splitX,H);c2d.clip();
+    const c=cen(Z.LC),bx=W*0.12,by=H*0.10,a=eff*0.65;
+    c2d.save(); clipAfter(c2d);
     c2d.globalCompositeOperation='multiply';
     c2d.translate(c.x,c.y);c2d.scale(1,by/bx);
     const gr=c2d.createRadialGradient(0,0,0,0,0,bx);
     gr.addColorStop(0,`rgba(${r},${g},${b},${a})`);
-    gr.addColorStop(0.5,`rgba(${r},${g},${b},${a*0.4})`);
+    gr.addColorStop(0.5,`rgba(${r},${g},${b},${a*0.45})`);
     gr.addColorStop(1,`rgba(${r},${g},${b},0)`);
     c2d.fillStyle=gr;c2d.beginPath();c2d.arc(0,0,bx,0,Math.PI*2);c2d.fill();
     c2d.restore();
   }
 
-  // ── Highlight ──
+  // ── 5. HIGHLIGHT (dewy shimmer) ──
   if(fx.highlight){
-    const t4=lm(4),t6=lm(6),fh=cen(Z.FH),a=eff*0.45;
+    const t4=lm(4),t6=lm(6),fh=cen(Z.FH),a=eff*0.60;
     c2d.save();
     c2d.beginPath();c2d.rect(0,0,splitX,H);c2d.clip();
     c2d.globalCompositeOperation='screen';
-    const bw=W*0.018,bh=Math.abs(t4.y-t6.y)+16;
+    const bw=W*0.020,bh=Math.abs(t4.y-t6.y)+18;
     const ng=c2d.createLinearGradient(t6.x-bw,0,t6.x+bw,0);
     ng.addColorStop(0,'rgba(255,255,255,0)');
-    ng.addColorStop(.5,`rgba(255,255,255,${a*0.8})`);
+    ng.addColorStop(.5,`rgba(255,255,255,${a*0.90})`);
     ng.addColorStop(1,'rgba(255,255,255,0)');
     c2d.fillStyle=ng;c2d.fillRect(t6.x-bw,t6.y-2,bw*2,bh);
-    const fg=c2d.createRadialGradient(fh.x,fh.y,0,fh.x,fh.y,W*0.12);
-    fg.addColorStop(0,`rgba(255,253,245,${a*0.35})`);
+    const fg=c2d.createRadialGradient(fh.x,fh.y,0,fh.x,fh.y,W*0.14);
+    fg.addColorStop(0,`rgba(255,253,245,${a*0.45})`);
     fg.addColorStop(1,'rgba(255,253,245,0)');
-    c2d.fillStyle=fg;c2d.beginPath();c2d.arc(fh.x,fh.y,W*0.12,0,Math.PI*2);c2d.fill();
+    c2d.fillStyle=fg;c2d.beginPath();c2d.arc(fh.x,fh.y,W*0.14,0,Math.PI*2);c2d.fill();
     c2d.restore();
   }
 
-  // ── Under eye kiri landmark ──
+  // ── 6. UNDER EYE ──
   if(fx.undereye){
-    const leye=cen(Z.LE),r=W*0.046,a=eff*0.32;
+    const leye=cen(Z.LE),r=W*0.048,a=eff*0.40;
     c2d.save();
     c2d.beginPath();c2d.rect(0,0,splitX,H);c2d.clip();
     c2d.globalCompositeOperation='screen';
-    const g=c2d.createRadialGradient(leye.x,leye.y+r*0.5,0,leye.x,leye.y+r*0.5,r*0.8);
+    const g=c2d.createRadialGradient(leye.x,leye.y+r*0.5,0,leye.x,leye.y+r*0.5,r*0.85);
     g.addColorStop(0,`rgba(255,250,235,${a})`);
     g.addColorStop(0.6,`rgba(255,246,225,${a*0.4})`);
     g.addColorStop(1,'rgba(255,246,225,0)');
     c2d.fillStyle=g;c2d.beginPath();
-    c2d.ellipse(leye.x,leye.y+r*0.5,r*0.7,r*0.38,0,0,Math.PI*2);
+    c2d.ellipse(leye.x,leye.y+r*0.5,r*0.72,r*0.40,0,0,Math.PI*2);
     c2d.fill();c2d.restore();
   }
 
-  // ── Shade overlay ──
-  if(selectedHex&&shadeMix>=0.05){
-    const{r,g,b}=hex2rgb(selectedHex),a=eff*shadeMix*0.24;
-    c2d.save();
-    c2d.beginPath();buildSmoothPath(c2d,pts);c2d.clip();
-    c2d.beginPath();c2d.rect(0,0,splitX,H);c2d.clip();
-    c2d.globalCompositeOperation='multiply';
-    c2d.fillStyle=`rgba(${r},${g},${b},${a})`;
-    c2d.fillRect(0,0,W,H);
-    c2d.restore();
-  }
-
-  // ── Feather ──
+  // ── Feather tepi oval ──
   drawFeatherEdge(pts);
 
   // ── Guide canvas ──
   gctx.clearRect(0,0,guideCanvas.width,guideCanvas.height);
-
-  // Oval guide
   gctx.save();
   gctx.beginPath();buildSmoothPath(gctx,getOvalPts());
-  gctx.strokeStyle=faceOn?'rgba(240,40,122,0.5)':'rgba(255,255,255,0.1)';
+  gctx.strokeStyle=faceOn?'rgba(240,40,122,0.45)':'rgba(255,255,255,0.08)';
   gctx.lineWidth=Math.max(1.5,W*0.002);
   gctx.stroke();
   gctx.restore();
 
   // Split line
-  const topPt=lm(10), botPt=lm(152);
+  const topPt=lm(10),botPt=lm(152);
   gctx.save();
   gctx.strokeStyle='rgba(255,255,255,0.80)';
   gctx.lineWidth=Math.max(1.5,W*0.002);
   gctx.setLineDash([Math.round(W*0.01),Math.round(W*0.007)]);
-  gctx.beginPath();
-  gctx.moveTo(splitX,topPt.y);
-  gctx.lineTo(splitX,botPt.y);
-  gctx.stroke();
+  gctx.beginPath();gctx.moveTo(splitX,topPt.y);gctx.lineTo(splitX,botPt.y);gctx.stroke();
   gctx.setLineDash([]);
   gctx.restore();
 
-  // Labels - gctx di-flip CSS scaleX(-1)
-  // "BEFORE" harus tampil di KIRI layar = koordinat KANAN landmark = x > splitX
-  // "AFTER"  harus tampil di KANAN layar = koordinat KIRI landmark = x < splitX
-  // Untuk text terbaca benar di layar yang ter-flip:
-  // Counter-flip per text: translate ke posX, scale(-1,1), fillText di 0
-
+  // Labels (counter-flip CSS)
   const fontSize=Math.round(W*0.030);
   const labelY=topPt.y - Math.round(H*0.018);
 
-  // BEFORE: kiri layar = kanan landmark (splitX + offset)
-  const beforeLandmarkX = splitX + W*0.13;
   gctx.save();
-  gctx.translate(beforeLandmarkX, 0);
-  gctx.scale(-1, 1);
+  gctx.translate(splitX+W*0.13,0);gctx.scale(-1,1);
   gctx.font=`bold ${fontSize}px -apple-system,sans-serif`;
   gctx.textAlign='center';
   gctx.fillStyle='rgba(255,255,255,0.88)';
-  gctx.shadowColor='rgba(0,0,0,0.9)'; gctx.shadowBlur=10;
-  gctx.fillText('BEFORE', 0, labelY);
+  gctx.shadowColor='rgba(0,0,0,0.9)';gctx.shadowBlur=10;
+  gctx.fillText('BEFORE',0,labelY);
   gctx.restore();
 
-  // AFTER: kanan layar = kiri landmark (splitX - offset)
-  const afterLandmarkX = splitX - W*0.13;
   gctx.save();
-  gctx.translate(afterLandmarkX, 0);
-  gctx.scale(-1, 1);
+  gctx.translate(splitX-W*0.13,0);gctx.scale(-1,1);
   gctx.font=`bold ${fontSize}px -apple-system,sans-serif`;
   gctx.textAlign='center';
   gctx.fillStyle='rgba(249,168,212,1)';
-  gctx.shadowColor='rgba(0,0,0,0.9)'; gctx.shadowBlur=10;
-  gctx.fillText('AFTER', 0, labelY);
+  gctx.shadowColor='rgba(0,0,0,0.9)';gctx.shadowBlur=10;
+  gctx.fillText('AFTER',0,labelY);
   gctx.restore();
 }
 
@@ -911,16 +902,15 @@ function computePhotoZones(lms,W,H){
 
 // Core: edit pixel langsung — tidak ada canvas blend, tidak overexpose
 function applyPixelFilter(srcData, z, opts){
-  const {fcx,fcy,frx,fry,lcen,rcen,nose,noseTip,noseBridge,fh,leye,reye,leyeC,reyeC,W,H}=z;
-  const {intensity,blushHue,shadeMix,selectedHex,fx}=opts;
+  const{fcx,fcy,frx,fry,lcen,rcen,nose,noseTip,noseBridge,fh,leye,reye,leyeC,reyeC,W,H}=z;
+  const{intensity,blushHue,shadeMix,selectedHex,fx}=opts;
   const data=new Uint8ClampedArray(srcData.data);
-
   const shC=selectedHex?hexToRgb(selectedHex):null;
   const bT=blushHue/100;
   const blR=Math.round(235+bT*8),blG=Math.round(110+bT*55),blB=Math.round(120-bT*50);
 
-  // Split point = nose bridge X (before/after divider)
-  const splitX = noseBridge.x;
+  // Split: sebelah kanan noseBridge = AFTER (sesuai photo tidak di-flip)
+  const splitX=noseBridge.x;
 
   for(let y=0;y<H;y++){
     for(let x=0;x<W;x++){
@@ -928,94 +918,101 @@ function applyPixelFilter(srcData, z, opts){
       let r=data[i],g=data[i+1],b=data[i+2];
 
       // Face oval mask
-      const fMask=ellipseDist(x,y,fcx,fcy,frx,fry,0.20);
+      const fMask=ellipseDist(x,y,fcx,fcy,frx,fry,0.18);
       if(fMask<=0) continue;
 
-      // BEFORE side (kiri dari split) = skip semua efek
-      if(x < splitX) continue;
+      // BEFORE side = kiri dari split (x < splitX)
+      if(x<splitX) continue;
 
       // Eye mask
       const lEM=ellipseDist(x,y,leyeC.x,leyeC.y,frx*0.18,fry*0.12,0.6);
       const rEM=ellipseDist(x,y,reyeC.x,reyeC.y,frx*0.18,fry*0.12,0.6);
       const eyeM=Math.max(lEM,rEM);
-      const skinM=fMask*(1-eyeM*0.90);
+      const skinM=fMask*(1-eyeM*0.88);
 
-      // 1. Skin smooth
-      if(fx.smooth && skinM>0){
-        const str=intensity*0.50*skinM;
-        if(shC){
-          r=clamp(r+(shC.r-r)*str*0.55);
-          g=clamp(g+(shC.g-g)*str*0.50);
-          b=clamp(b+(shC.b-b)*str*0.45);
-        }else{
-          const lum=r*0.299+g*0.587+b*0.114;
-          const tgt=Math.min(255,lum*1.06+8);
-          r=clamp(r+(tgt-r)*str*0.55);
-          g=clamp(g+(tgt-g)*str*0.50);
-          b=clamp(b+(tgt-b)*str*0.40);
+      // ── 1. FOUNDATION — ini yang paling penting ──
+      // Simulasi cushion: blend warna shade ke kulit + coverage
+      if(shC&&shadeMix>=0.01&&skinM>0){
+        const coverage=intensity*shadeMix*0.70*skinM; // jauh lebih kuat
+        // Multiply blend dulu (natural color mix)
+        const mr=clamp(r*shC.r/255);
+        const mg2=clamp(g*shC.g/255);
+        const mb=clamp(b*shC.b/255);
+        // Blend multiply dengan original
+        const multStr=Math.min(coverage*0.55,0.55);
+        r=clamp(r+(mr-r)*multStr);
+        g=clamp(g+(mg2-g)*multStr);
+        b=clamp(b+(mb-b)*multStr);
+        // Tambah coverage layer (source-over feel)
+        const coverStr=Math.min(coverage*0.40,0.40);
+        r=clamp(r+(shC.r-r)*coverStr);
+        g=clamp(g+(shC.g-g)*coverStr);
+        b=clamp(b+(shC.b-b)*coverStr);
+      }
+
+      // ── 2. SKIN SMOOTH ──
+      if(fx.smooth&&skinM>0){
+        const lum=r*0.299+g*0.587+b*0.114;
+        const tgt=Math.min(255,lum*1.06+8);
+        const s=intensity*0.42*skinM;
+        if(lum>0){
+          r=Math.min(255,Math.round(r+(r*tgt/lum-r)*s));
+          g=Math.min(255,Math.round(g+(g*tgt/lum-g)*s*0.94));
+          b=Math.min(255,Math.round(b+(b*tgt/lum-b)*s*0.82));
         }
       }
 
-      // 2. Brightening
-      if(fx.bright && fMask>0){
+      // ── 3. BRIGHTENING ──
+      if(fx.bright&&fMask>0){
         const dx=(x-fcx)/frx,dy=(y-fcy)/fry;
         const cd=Math.sqrt(dx*dx+dy*dy);
         const brtM=fMask*Math.max(0,1-cd*0.65);
-        const str=intensity*0.22*brtM;
-        r=clamp(r+(255-r)*str*0.38);
-        g=clamp(g+(255-g)*str*0.32);
-        b=clamp(b+(255-b)*str*0.22);
+        const str=intensity*0.28*brtM;
+        r=clamp(r+(255-r)*str*0.40);
+        g=clamp(g+(255-g)*str*0.34);
+        b=clamp(b+(255-b)*str*0.24);
       }
 
-      // 3. Blush - hanya sisi kanan
+      // ── 4. BLUSH ──
       if(fx.blush){
-        // Hanya rcen (pipi kanan di foto = sisi after)
-        const rBM=ellipseDist(x,y,rcen.x,rcen.y,frx*0.30,fry*0.22,0.40)*fMask;
+        const rBM=ellipseDist(x,y,rcen.x,rcen.y,frx*0.32,fry*0.24,0.40)*fMask;
         if(rBM>0){
-          const str=intensity*0.50*rBM;
-          r=clamp(r*(1-str*0.6)+(r*blR/255)*str*0.6);
-          g=clamp(g*(1-str*0.6)+(g*blG/255)*str*0.6);
-          b=clamp(b*(1-str*0.6)+(b*blB/255)*str*0.6);
-          r=clamp(r+blR*str*0.08);
-          g=clamp(g+blG*str*0.04);
+          const str=intensity*0.62*rBM;
+          r=clamp(r*(1-str*0.55)+(r*blR/255)*str*0.55);
+          g=clamp(g*(1-str*0.55)+(g*blG/255)*str*0.55);
+          b=clamp(b*(1-str*0.55)+(b*blB/255)*str*0.55);
+          r=clamp(r+blR*str*0.10);
+          g=clamp(g+blG*str*0.05);
         }
       }
 
-      // 4. Highlight
+      // ── 5. HIGHLIGHT ──
       if(fx.highlight){
         const nBx=Math.abs(x-noseBridge.x)/(frx*0.10);
         const nBy=(y-noseBridge.y)/(fry*0.35);
         const nM=fMask*Math.max(0,1-Math.sqrt(nBx*nBx+Math.max(0,nBy)*Math.max(0,nBy)));
         const fhM=ellipseDist(x,y,fh.x,fh.y,frx*0.50,fry*0.22,0.5)*fMask;
-        const hlM=Math.max(nM*0.85,fhM*0.55);
+        const hlM=Math.max(nM*0.90,fhM*0.60);
         if(hlM>0){
-          const str=intensity*0.38*hlM;
-          r=clamp(r+(255-r)*str*0.55);
-          g=clamp(g+(255-g)*str*0.50);
-          b=clamp(b+(255-b)*str*0.42);
+          const str=intensity*0.50*hlM;
+          r=clamp(r+(255-r)*str*0.60);
+          g=clamp(g+(255-g)*str*0.55);
+          b=clamp(b+(255-b)*str*0.46);
         }
       }
 
-      // 5. Under eye - hanya sisi kanan
+      // ── 6. UNDER EYE ──
       if(fx.undereye){
         const rUE=ellipseDist(x,y,reye.x,reye.y+fry*0.04,frx*0.16,fry*0.09,0.5)*fMask;
         if(rUE>0){
-          const str=intensity*0.30*rUE;
-          r=clamp(r+(255-r)*str*0.42);
-          g=clamp(g+(255-g)*str*0.38);
-          b=clamp(b+(255-b)*str*0.28);
+          const str=intensity*0.38*rUE;
+          r=clamp(r+(255-r)*str*0.45);
+          g=clamp(g+(255-g)*str*0.40);
+          b=clamp(b+(255-b)*str*0.32);
         }
       }
 
-      // 6. Shade
-      if(fx.smooth && shC && shadeMix>=0.05 && skinM>0){
-        const str=intensity*shadeMix*0.40*skinM;
-        r=clamp(r*(1-str*0.5)+(r*shC.r/255)*str*0.5);
-        g=clamp(g*(1-str*0.5)+(g*shC.g/255)*str*0.5);
-        b=clamp(b*(1-str*0.5)+(b*shC.b/255)*str*0.5);
-      }
-
-      data[i]=r; data[i+1]=g; data[i+2]=b;
+      data[i]=r;data[i+1]=g;data[i+2]=b;
     }
   }
   return new ImageData(data,W,H);
